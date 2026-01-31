@@ -76,7 +76,11 @@
 
         notepadBtn.addEventListener('click', () => {
             if (typeof PortalsSdk !== 'undefined') {
-                PortalsSdk.setTaskActive('notepad');
+                const message = {
+                    TaskName: "notepad",
+                    TaskTargetState: "SetAnyToActive"
+                };
+                PortalsSdk.sendMessageToUnity(JSON.stringify(message));
                 console.log('Notepad opened');
             }
         });

@@ -308,16 +308,26 @@
 
         // Portals SDK - set task active
         function setTaskActive(taskName) {
+            console.log('Attempting to activate task:', taskName);
             if (typeof PortalsSdk !== 'undefined') {
-                PortalsSdk.setTaskActive(taskName);
+                const message = {
+                    TaskName: taskName,
+                    TaskTargetState: "SetAnyToActive"
+                };
+                PortalsSdk.sendMessageToUnity(JSON.stringify(message));
                 console.log('Task activated:', taskName);
             }
         }
 
         // Portals SDK - set task inactive
         function setTaskInactive(taskName) {
+            console.log('Attempting to deactivate task:', taskName);
             if (typeof PortalsSdk !== 'undefined') {
-                PortalsSdk.setTaskNotActive(taskName);
+                const message = {
+                    TaskName: taskName,
+                    TaskTargetState: "SetActiveToNotActive"
+                };
+                PortalsSdk.sendMessageToUnity(JSON.stringify(message));
                 console.log('Task deactivated:', taskName);
             }
         }
