@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Notes</title>
     <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <script src="https://portals-labs.github.io/portals-sdk/portals-sdk.js"></script>
+    <script src="https://portals-labs.github.io/portals-sdk/portals-sdk.js?v=20260131"></script>
     <style>
         * {
             margin: 0;
@@ -224,6 +224,11 @@
     </div>
 
     <script>
+        // Return keyboard focus to game on load
+        if (typeof PortalsSdk !== 'undefined') {
+            PortalsSdk.focusGameKeyboard();
+        }
+
         // State
         let notes = [];
 
