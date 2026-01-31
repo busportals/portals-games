@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Notes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://portals-labs.github.io/portals-sdk/portals-sdk.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Special Elite', 'Courier New', monospace;
+            background: transparent;
+            width: 400px;
+            height: 500px;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .notepad {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Notepad paper effect */
+        .notepad-paper {
+            flex: 1;
+            background: linear-gradient(to bottom, #f5f0e1 0%, #ebe6d7 100%);
+            border-radius: 4px;
+            box-shadow:
+                0 4px 20px rgba(0, 0, 0, 0.3),
+                inset 0 0 30px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Spiral binding effect on left */
+        .notepad-paper::before {
+            content: '';
+            position: absolute;
+            left: 24px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent,
+                transparent 18px,
+                #b8a88a 18px,
+                #b8a88a 22px
+            );
+        }
+
+        /* Red margin line */
+        .notepad-paper::after {
+            content: '';
+            position: absolute;
+            left: 50px;
+            top: 60px;
+            bottom: 0;
+            width: 1px;
+            background: rgba(200, 80, 80, 0.3);
+        }
+
+        /* Header area */
+        .notepad-header {
+            padding: 16px 20px 12px 60px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .notepad-title {
+            font-family: 'Space Mono', monospace;
+            font-size: 18px;
+            font-weight: 700;
+            color: #3a3a3a;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        /* Close button */
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 36px;
+            height: 36px;
+            background: #c0392b;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .close-btn:hover {
+            background: #e74c3c;
+            transform: scale(1.05);
+        }
+
+        .close-btn:active {
+            transform: scale(0.95);
+        }
+
+        .close-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        /* Notes content area */
+        .notes-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 20px 20px 60px;
+            /* Lined paper effect */
+            background-image: repeating-linear-gradient(
+                transparent,
+                transparent 27px,
+                rgba(0, 0, 0, 0.05) 27px,
+                rgba(0, 0, 0, 0.05) 28px
+            );
+            background-position: 0 0;
+        }
+
+        .notes-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .notes-container::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 4px;
+        }
+
+        .notes-container::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        .notes-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        /* Individual note entry */
+        .note-entry {
+            padding: 6px 0;
+            line-height: 22px;
+            color: #2a2a2a;
+            font-size: 14px;
+            position: relative;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .note-entry::before {
+            content: '\2022';
+            position: absolute;
+            left: -20px;
+            color: #666;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Empty state */
+        .empty-state {
+            color: #888;
+            font-style: italic;
+            padding: 20px 0;
+            font-size: 13px;
+        }
+
+        /* Worn edge effect */
+        .worn-edge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.03) 50%);
+        }
+    </style>
+</head>
+<body>
+    <div class="notepad">
+        <div class="notepad-paper">
+            <div class="worn-edge"></div>
+            <div class="notepad-header">
+                <div class="notepad-title">Notes</div>
+                <button class="close-btn" id="close-btn">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="notes-container" id="notes-container">
+                <div class="empty-state">No notes yet. Inspect items to add observations.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let notes = [];
+
+        // DOM references
+        const notesContainer = document.getElementById('notes-container');
+        const closeBtn = document.getElementById('close-btn');
+
+        // Close button handler
+        closeBtn.addEventListener('click', () => {
+            if (typeof PortalsSdk !== 'undefined') {
+                PortalsSdk.setTaskNotActive('notepad');
+                console.log('Notepad closed');
+            }
+        });
+
+        // Add a note
+        function addNote(text) {
+            if (!text || text.trim() === '') return;
+
+            notes.push(text.trim());
+            renderNotes();
+
+            // Scroll to bottom
+            notesContainer.scrollTop = notesContainer.scrollHeight;
+        }
+
+        // Remove a note (by exact text match)
+        function removeNote(text) {
+            const index = notes.indexOf(text.trim());
+            if (index !== -1) {
+                notes.splice(index, 1);
+                renderNotes();
+            }
+        }
+
+        // Clear all notes
+        function clearAll() {
+            notes = [];
+            renderNotes();
+        }
+
+        // Render notes list
+        function renderNotes() {
+            if (notes.length === 0) {
+                notesContainer.innerHTML = '<div class="empty-state">No notes yet. Inspect items to add observations.</div>';
+                return;
+            }
+
+            notesContainer.innerHTML = notes.map(note =>
+                `<div class="note-entry">${escapeHtml(note)}</div>`
+            ).join('');
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Listen for messages from Portals
+        if (typeof PortalsSdk !== 'undefined') {
+            PortalsSdk.setMessageListener((message) => {
+                console.log('Notepad received:', message);
+
+                const trimmed = message.trim();
+
+                if (trimmed.startsWith('add:')) {
+                    const noteText = trimmed.substring(4).trim();
+                    addNote(noteText);
+                } else if (trimmed.startsWith('remove:')) {
+                    const noteText = trimmed.substring(7).trim();
+                    removeNote(noteText);
+                } else if (trimmed === 'clear: all' || trimmed === 'clear:all') {
+                    clearAll();
+                }
+            });
+        }
+    </script>
+</body>
+</html>

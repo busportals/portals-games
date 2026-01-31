@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Inventory Hotbar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://portals-labs.github.io/portals-sdk/portals-sdk.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background: transparent;
+            width: 480px;
+            height: 80px;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .hotbar {
+            display: flex;
+            gap: 8px;
+            padding: 5px;
+            height: 80px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .slot {
+            width: 70px;
+            height: 70px;
+            background: rgba(40, 40, 45, 0.85);
+            border: 2px solid #5a5a5a;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.15s ease;
+        }
+
+        .slot:hover {
+            border-color: #7ec8e3;
+            box-shadow: 0 0 12px rgba(126, 200, 227, 0.4), inset 0 0 8px rgba(126, 200, 227, 0.1);
+        }
+
+        .slot.selected {
+            border-color: #7ec8e3;
+            border-width: 3px;
+            box-shadow: 0 0 16px rgba(126, 200, 227, 0.5), inset 0 0 12px rgba(126, 200, 227, 0.15);
+        }
+
+        .slot.empty {
+            border-style: dashed;
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        .slot.empty:hover {
+            border-color: #5a5a5a;
+            box-shadow: none;
+        }
+
+        .slot-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+        }
+
+        .slot-icon svg {
+            width: 36px;
+            height: 36px;
+            fill: #c8c8c8;
+            transition: fill 0.15s ease;
+        }
+
+        .slot:hover .slot-icon svg,
+        .slot.selected .slot-icon svg {
+            fill: #e8e8e8;
+        }
+
+        .tooltip {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(30, 30, 35, 0.95);
+            color: #e0e0e0;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+            border: 1px solid #4a4a4a;
+            z-index: 100;
+        }
+
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: rgba(30, 30, 35, 0.95);
+        }
+
+        .slot:hover .tooltip {
+            opacity: 1;
+        }
+
+        .slot.empty .tooltip {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="hotbar" id="hotbar">
+        <!-- Slot 0: Cursor (always present) -->
+        <div class="slot selected" data-slot="0" data-type="cursor">
+            <div class="slot-icon">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 4l7 18 2.5-7.5L21 12 4 4z"/>
+                </svg>
+            </div>
+            <div class="tooltip">Use Cursor</div>
+        </div>
+        <!-- Slots 1-5: Item slots -->
+        <div class="slot empty" data-slot="1" data-type="item"></div>
+        <div class="slot empty" data-slot="2" data-type="item"></div>
+        <div class="slot empty" data-slot="3" data-type="item"></div>
+        <div class="slot empty" data-slot="4" data-type="item"></div>
+        <div class="slot empty" data-slot="5" data-type="item"></div>
+    </div>
+
+    <script>
+        // Item registry - add new items here
+        const ITEMS = {
+            keycard1126: {
+                name: "Keycard #1126",
+                icon: "https://api.iconify.design/mdi:card-account-details.svg?color=%23e8c547",
+                task: "keycard1126"
+            }
+            // Add more items as needed:
+            // flashlight: { name: "Flashlight", icon: "...", task: "flashlight" }
+        };
+
+        // State
+        let inventory = []; // Array of item IDs in slots 1-5
+        let selectedSlot = 0;
+        let currentActiveTask = null;
+
+        // DOM references
+        const hotbar = document.getElementById('hotbar');
+        const slots = hotbar.querySelectorAll('.slot');
+
+        // Initialize
+        function init() {
+            slots.forEach(slot => {
+                slot.addEventListener('click', () => handleSlotClick(slot));
+            });
+        }
+
+        // Handle slot click
+        function handleSlotClick(slot) {
+            const slotIndex = parseInt(slot.dataset.slot);
+
+            // Don't select empty item slots
+            if (slot.classList.contains('empty') && slotIndex !== 0) {
+                return;
+            }
+
+            // Deselect previous
+            slots[selectedSlot].classList.remove('selected');
+
+            // Select new
+            selectedSlot = slotIndex;
+            slot.classList.add('selected');
+
+            // Handle task activation
+            if (slotIndex === 0) {
+                // Cursor selected - deactivate any active item task
+                if (currentActiveTask) {
+                    setTaskInactive(currentActiveTask);
+                    currentActiveTask = null;
+                }
+            } else {
+                // Item selected
+                const itemId = inventory[slotIndex - 1];
+                if (itemId && ITEMS[itemId]) {
+                    // Deactivate previous task if different
+                    if (currentActiveTask && currentActiveTask !== ITEMS[itemId].task) {
+                        setTaskInactive(currentActiveTask);
+                    }
+                    // Activate new task
+                    currentActiveTask = ITEMS[itemId].task;
+                    setTaskActive(currentActiveTask);
+                }
+            }
+        }
+
+        // Add item to inventory
+        function addItem(itemId) {
+            if (!ITEMS[itemId]) {
+                console.warn('Unknown item:', itemId);
+                return;
+            }
+
+            // Find first empty slot
+            const emptyIndex = inventory.findIndex((item, i) => item === null || item === undefined);
+            const slotIndex = emptyIndex !== -1 ? emptyIndex : inventory.length;
+
+            if (slotIndex >= 5) {
+                console.warn('Inventory full');
+                return;
+            }
+
+            inventory[slotIndex] = itemId;
+            renderSlot(slotIndex + 1); // +1 because slot 0 is cursor
+        }
+
+        // Remove item from inventory
+        function removeItem(itemId) {
+            const index = inventory.indexOf(itemId);
+            if (index === -1) return;
+
+            // If this item was selected, switch to cursor
+            if (selectedSlot === index + 1) {
+                handleSlotClick(slots[0]);
+            }
+
+            // Deactivate task if it was active
+            if (ITEMS[itemId] && currentActiveTask === ITEMS[itemId].task) {
+                setTaskInactive(currentActiveTask);
+                currentActiveTask = null;
+            }
+
+            inventory[index] = null;
+            renderSlot(index + 1);
+        }
+
+        // Clear all items
+        function clearAll() {
+            // Switch to cursor first
+            if (selectedSlot !== 0) {
+                handleSlotClick(slots[0]);
+            }
+
+            inventory = [];
+            for (let i = 1; i <= 5; i++) {
+                renderSlot(i);
+            }
+        }
+
+        // Render a specific slot
+        function renderSlot(slotIndex) {
+            const slot = slots[slotIndex];
+            const itemId = inventory[slotIndex - 1];
+
+            if (itemId && ITEMS[itemId]) {
+                const item = ITEMS[itemId];
+                slot.classList.remove('empty');
+                slot.innerHTML = `
+                    <div class="slot-icon">
+                        <img src="${item.icon}" alt="${item.name}" style="width: 36px; height: 36px;">
+                    </div>
+                    <div class="tooltip">${item.name}</div>
+                `;
+            } else {
+                slot.classList.add('empty');
+                slot.innerHTML = '';
+            }
+        }
+
+        // Portals SDK - set task active
+        function setTaskActive(taskName) {
+            if (typeof PortalsSdk !== 'undefined') {
+                PortalsSdk.setTaskActive(taskName);
+                console.log('Task activated:', taskName);
+            }
+        }
+
+        // Portals SDK - set task inactive
+        function setTaskInactive(taskName) {
+            if (typeof PortalsSdk !== 'undefined') {
+                PortalsSdk.setTaskNotActive(taskName);
+                console.log('Task deactivated:', taskName);
+            }
+        }
+
+        // Listen for messages from Portals
+        if (typeof PortalsSdk !== 'undefined') {
+            PortalsSdk.setMessageListener((message) => {
+                console.log('Hotbar received:', message);
+
+                const trimmed = message.trim();
+
+                if (trimmed.startsWith('add:')) {
+                    const itemId = trimmed.substring(4).trim();
+                    addItem(itemId);
+                } else if (trimmed.startsWith('remove:')) {
+                    const itemId = trimmed.substring(7).trim();
+                    removeItem(itemId);
+                } else if (trimmed === 'clear: all' || trimmed === 'clear:all') {
+                    clearAll();
+                }
+            });
+        }
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>
