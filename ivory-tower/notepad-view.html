@@ -243,22 +243,9 @@
         const closeBtn = document.getElementById('close-btn');
 
         // Close button handler
-        closeBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+        closeBtn.addEventListener('click', function() {
             console.log('Close button clicked');
-
-            if (typeof PortalsSdk !== 'undefined') {
-                try {
-                    PortalsSdk.setTaskNotActive('notepad');
-                    PortalsSdk.focusGameKeyboard();
-                    console.log('Notepad closed via SDK');
-                } catch (err) {
-                    console.error('SDK error:', err);
-                }
-            } else {
-                console.warn('PortalsSdk not available');
-            }
+            PortalsSdk.closeIframe();
         });
 
         // Add a note
