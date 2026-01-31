@@ -22,22 +22,25 @@
 
         body {
             font-family: 'Space Mono', monospace;
-            min-height: 80px;
+            min-height: 120px;
             overflow: visible;
             user-select: none;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
+            padding-top: 10px;
         }
 
         .hotbar {
             display: flex;
             gap: 8px;
-            padding: 5px;
-            height: 80px;
+            padding: 12px 20px;
             align-items: center;
             justify-content: center;
-            background: transparent;
+            background: rgba(30, 30, 35, 0.85);
+            border-radius: 16px;
+            border: 2px solid rgba(80, 80, 85, 0.6);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         }
 
         .slot {
@@ -99,7 +102,7 @@
 
         .tooltip {
             position: absolute;
-            bottom: calc(100% + 8px);
+            top: calc(100% + 8px);
             left: 50%;
             transform: translateX(-50%);
             background: rgba(30, 30, 35, 0.95);
@@ -118,11 +121,11 @@
         .tooltip::after {
             content: '';
             position: absolute;
-            top: 100%;
+            bottom: 100%;
             left: 50%;
             transform: translateX(-50%);
             border: 6px solid transparent;
-            border-top-color: rgba(30, 30, 35, 0.95);
+            border-bottom-color: rgba(30, 30, 35, 0.95);
         }
 
         .slot:hover .tooltip {
