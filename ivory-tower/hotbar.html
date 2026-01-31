@@ -13,13 +13,20 @@
             box-sizing: border-box;
         }
 
+        html, body {
+            background: transparent !important;
+            background-color: transparent !important;
+        }
+
         body {
             font-family: 'Space Mono', monospace;
-            background: transparent;
             width: 480px;
             height: 80px;
-            overflow: hidden;
+            overflow: visible;
             user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .hotbar {
@@ -29,6 +36,7 @@
             height: 80px;
             align-items: center;
             justify-content: center;
+            background: transparent;
         }
 
         .slot {
