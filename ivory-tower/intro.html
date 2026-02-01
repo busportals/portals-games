@@ -193,20 +193,14 @@
             // Fade out the final screen
             document.getElementById('screen3').classList.remove('active');
 
-            // Close the iframe and set intro task to active
-            setTimeout(() => {
-                if (typeof PortalsSdk !== 'undefined') {
-                    // Set task "intro" to active
-                    const message = {
-                        TaskName: "intro",
-                        TaskTargetState: "SetNotActiveToActive"
-                    };
-                    PortalsSdk.sendMessageToUnity(JSON.stringify(message));
-
-                    // Close the iframe
-                    PortalsSdk.closeIframe();
-                }
-            }, 800);
+            if (typeof PortalsSdk !== 'undefined') {
+                // Set task "intro" to active
+                const message = {
+                    TaskName: "intro",
+                    TaskTargetState: "SetNotActiveToActive"
+                };
+                PortalsSdk.sendMessageToUnity(JSON.stringify(message));
+            }
         }
 
         // Return keyboard focus to game
