@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Introduction</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://portals-labs.github.io/portals-sdk/portals-sdk.js?v=20260131"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            background: #000000;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+            color: #e0e0e0;
+        }
+
+        .screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.8s ease-in-out;
+        }
+
+        .screen.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .logo {
+            width: min(70vw, 500px);
+            height: auto;
+            margin-bottom: 40px;
+        }
+
+        .logo svg {
+            width: 100%;
+            height: auto;
+        }
+
+        h1 {
+            font-size: clamp(20px, 4vw, 32px);
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 60px;
+            text-align: center;
+        }
+
+        .instruction-text {
+            font-size: clamp(16px, 3vw, 24px);
+            line-height: 1.6;
+            text-align: center;
+            max-width: 600px;
+            margin-bottom: 60px;
+            color: #c0c0c0;
+        }
+
+        .adventure-text {
+            font-size: clamp(24px, 5vw, 40px);
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-align: center;
+            margin-bottom: 60px;
+            text-shadow:
+                0 0 10px rgba(126, 200, 227, 0.4),
+                0 0 20px rgba(126, 200, 227, 0.2);
+        }
+
+        .btn {
+            background: transparent;
+            border: 2px solid #7ec8e3;
+            color: #e0e0e0;
+            font-family: 'Space Mono', monospace;
+            font-size: clamp(14px, 2.5vw, 18px);
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            padding: 16px 48px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 10px rgba(126, 200, 227, 0.2);
+        }
+
+        .btn:hover {
+            background: rgba(126, 200, 227, 0.15);
+            box-shadow: 0 0 20px rgba(126, 200, 227, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn.begin {
+            border-color: #7ec8e3;
+            background: rgba(126, 200, 227, 0.1);
+        }
+
+        .btn.begin:hover {
+            background: rgba(126, 200, 227, 0.25);
+            box-shadow: 0 0 30px rgba(126, 200, 227, 0.5);
+        }
+
+        /* Decorative line */
+        .divider {
+            width: 100px;
+            height: 1px;
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                rgba(126, 200, 227, 0.6) 50%,
+                transparent 100%
+            );
+            margin-bottom: 40px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Screen 1: Welcome -->
+    <div class="screen active" id="screen1">
+        <div class="logo">
+            <svg width="946" height="201" viewBox="0 0 946 201" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M170.317 94.5488C165.366 62.6241 144.3 42.1196 122.269 33.3376C110.876 28.7897 97.6889 26.0914 82.8317 28.1023C48.6983 32.6951 29.3026 56.6807 23.2524 80.8396C20.1031 93.4105 20.1511 109.125 27.2789 124.096C39.6905 150.239 67.3187 163.913 95.1354 157.411C111.519 153.574 121.955 144.259 128.7 132.283C136.304 118.795 139.196 94.4919 124.296 77.7111C111.879 63.6908 82.8616 55.8918 65.6243 75.1921C59.3526 82.2022 54.1497 95.4965 59.8196 108.438C64.6813 119.542 77.5179 126.217 88.7354 122.061C95.3655 119.624 99.1945 114.859 99.0736 108.106C99.0161 104.933 97.9382 104.849 96.3359 107.586C95.3722 109.22 93.5815 111.035 91.5457 112C79.7572 117.752 70.8481 107.822 71.1385 96.5813C71.3331 87.5271 78.934 79.3456 90.0193 78.1652C101.443 76.9222 112.364 83.5618 117.202 93.5868C126.243 112.43 115.474 134.808 95.6265 141.815C74.0214 149.435 52.9373 138.426 43.1002 121.747C33.8709 106.125 35.5443 90.2732 40.373 77.6483C47.1446 59.9437 65.1483 43.2282 91.8967 42.7292C117.423 42.2361 145.423 57.3829 153.808 90.7486C156.649 102.016 156.439 110.288 154.805 119.637C151.898 136.299 144.258 151.527 128.685 163.909C113.313 176.101 89.4382 182.128 70.7284 179.325C53.2516 176.726 37.074 169.013 24.7792 156.582C11.1582 142.861 1.47081 122.754 0.59068 100.973C-0.145753 83.0688 4.64406 64.9967 13.3765 50.2981C21.6628 36.3377 37.8075 21.3701 56.0267 13.7086L66.6271 10.0243C109.154 0.847746 144.612 12.8988 168.398 41.7879C181.459 57.7027 190.922 79.7968 192.258 101.069C192.386 103.313 177.289 109.087 170.327 94.5521" fill="#EBF6FF"/>
+                <path d="M897.598 160.012C883.041 160.012 871.016 156.636 861.1 150.096C851.185 143.556 845.91 134.273 845.066 122.67L866.585 119.294C868.062 132.586 880.72 141.868 898.231 141.868C913.21 141.868 924.602 135.328 924.602 126.045C924.602 119.083 917.218 114.442 900.552 111.7L883.252 108.746C860.467 104.316 850.552 95.4548 850.552 78.7882C850.552 58.5351 868.062 44.822 893.168 44.822C917.007 44.822 935.362 57.2692 938.948 75.2017L918.273 79.843C916.796 69.7165 906.459 62.5435 892.746 62.5435C880.72 62.5435 871.649 69.5055 871.649 77.3114C871.649 83.4295 877.556 87.016 891.058 89.7586L908.568 92.9232C934.94 97.9865 945.91 107.269 945.91 124.147C945.91 145.033 925.446 160.012 897.598 160.012Z" fill="#EBF6FF"/>
+                <path d="M810.229 156.003V0.307373H833.225V156.003H810.229Z" fill="#EBF6FF"/>
+                <path d="M731.575 160.012C707.946 160.012 690.646 146.299 690.646 127.311C690.646 108.957 706.469 95.4549 737.06 92.0793L761.743 89.3367C767.44 88.7038 771.026 85.5393 771.026 80.476C771.026 70.9823 760.267 63.5984 744.444 63.5984C727.566 63.5984 715.119 74.9908 713.853 85.9612L692.756 78.9992C694.866 60.6448 716.385 44.6111 744.866 44.6111C773.98 44.6111 793.389 60.8558 793.389 84.4844V156.003H773.98L770.815 140.18H770.604C762.798 152.628 749.085 160.012 731.575 160.012ZM737.693 141.235C756.891 141.235 770.604 128.999 770.604 111.911V105.159L740.857 108.535C722.081 110.434 713.431 117.185 713.431 125.835C713.431 135.117 723.558 141.235 737.693 141.235Z" fill="#EBF6FF"/>
+                <path d="M645.243 160.223C623.091 160.223 607.901 145.666 607.901 124.569V66.763H585.327V48.8305H607.901V17.8179L630.897 12.7546V48.8305H677.521V66.763H630.897V121.404C630.897 133.008 638.281 141.235 648.618 141.235C658.956 141.235 668.449 133.851 671.192 121.193L684.905 131.531C680.686 149.252 664.019 160.223 645.243 160.223Z" fill="#EBF6FF"/>
+                <path d="M549.751 44.822C568.528 44.822 581.186 57.4802 583.506 79.2101L563.886 85.3283C562.831 72.0372 555.447 64.0203 545.11 64.0203C529.287 64.0203 520.215 76.8895 520.215 98.8303V156.003H497.22V48.8305H515.996L518.95 65.4971H519.161C525.068 52.6279 536.46 44.822 549.751 44.822Z" fill="#EBF6FF"/>
+                <path d="M425.195 160.223C389.963 160.223 366.967 137.227 366.967 102.417C366.967 67.6068 389.963 44.6111 425.195 44.6111C460.005 44.6111 483.422 67.6068 483.422 102.417C483.422 137.227 460.005 160.223 425.195 160.223ZM425.195 140.391C446.503 140.391 460.637 125.413 460.637 102.417C460.637 79.4211 446.924 64.6532 425.195 64.6532C403.465 64.6532 389.752 79.4211 389.752 102.417C389.752 125.413 403.887 140.391 425.195 140.391Z" fill="#EBF6FF"/>
+                <path d="M243.495 200.307V48.8305H262.904L265.858 65.708H266.069C275.352 52.206 288.643 44.822 304.887 44.822C335.056 44.822 357.208 69.0836 357.208 102.417C357.208 135.75 335.056 160.012 305.098 160.012C288.854 160.012 275.774 152.839 266.702 139.548H266.491V200.307H243.495ZM300.035 139.759C319.655 139.759 334.423 123.303 334.423 102.417C334.423 81.1089 319.444 65.0751 300.035 65.0751C280.204 65.0751 265.647 81.5308 265.647 102.417C265.647 123.303 280.204 139.759 300.035 139.759Z" fill="#EBF6FF"/>
+            </svg>
+        </div>
+        <h1>Welcome to Portals</h1>
+        <button class="btn" onclick="nextScreen(2)">Next</button>
+    </div>
+
+    <!-- Screen 2: Instructions -->
+    <div class="screen" id="screen2">
+        <div class="divider"></div>
+        <p class="instruction-text">
+            Click on objects to interact with them.<br>
+            Explore your surroundings to uncover the story.
+        </p>
+        <div class="divider"></div>
+        <button class="btn" onclick="nextScreen(3)">Next</button>
+    </div>
+
+    <!-- Screen 3: Begin -->
+    <div class="screen" id="screen3">
+        <p class="adventure-text">An adventure awaits.</p>
+        <button class="btn begin" onclick="beginGame()">Begin</button>
+    </div>
+
+    <script>
+        let currentScreen = 1;
+
+        function nextScreen(screenNum) {
+            // Fade out current screen
+            document.getElementById('screen' + currentScreen).classList.remove('active');
+
+            // Fade in new screen after a brief delay
+            setTimeout(() => {
+                document.getElementById('screen' + screenNum).classList.add('active');
+                currentScreen = screenNum;
+            }, 400);
+        }
+
+        function beginGame() {
+            // Fade out the final screen
+            document.getElementById('screen3').classList.remove('active');
+
+            // Close the iframe via Portals
+            setTimeout(() => {
+                if (typeof PortalsSdk !== 'undefined') {
+                    const message = {
+                        TaskName: "intro",
+                        TaskTargetState: "SetActiveToNotActive"
+                    };
+                    PortalsSdk.sendMessageToUnity(JSON.stringify(message));
+                }
+            }, 800);
+        }
+
+        // Return keyboard focus to game
+        if (typeof PortalsSdk !== 'undefined') {
+            PortalsSdk.focusGameKeyboard();
+        }
+    </script>
+</body>
+</html>
