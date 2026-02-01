@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Transition Screen</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://portals-labs.github.io/portals-sdk/portals-sdk.js?v=20260131"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            background: transparent !important;
+            background-color: transparent !important;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Space Mono', monospace;
+        }
+
+        .transition-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            background: #000000;
+            animation: containerFade 6s ease-in-out forwards;
+        }
+
+        @keyframes containerFade {
+            0% { opacity: 0; }
+            25% { opacity: 1; }
+            75% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* CRT Scanline Overlay */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15) 0px,
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 3px
+            );
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Animated scan line that sweeps down */
+        .sweep-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(
+                180deg,
+                transparent 0%,
+                rgba(126, 200, 227, 0.4) 50%,
+                transparent 100%
+            );
+            opacity: 0;
+            animation: sweepDown 3s ease-in-out 1.5s forwards;
+            z-index: 5;
+        }
+
+        @keyframes sweepDown {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        /* Geometric Frame */
+        .frame {
+            position: absolute;
+            width: 60%;
+            max-width: 600px;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .frame-line {
+            position: absolute;
+            background: #7ec8e3;
+            box-shadow: 0 0 10px rgba(126, 200, 227, 0.5), 0 0 20px rgba(126, 200, 227, 0.3);
+        }
+
+        /* Horizontal lines */
+        .frame-line.top {
+            top: 0;
+            left: 50%;
+            height: 2px;
+            width: 0;
+            transform: translateX(-50%);
+            animation: expandHorizontal 0.8s ease-out 1.8s forwards;
+        }
+
+        .frame-line.bottom {
+            bottom: 0;
+            left: 50%;
+            height: 2px;
+            width: 0;
+            transform: translateX(-50%);
+            animation: expandHorizontal 0.8s ease-out 1.8s forwards;
+        }
+
+        @keyframes expandHorizontal {
+            0% { width: 0; }
+            100% { width: 100%; }
+        }
+
+        /* Vertical lines */
+        .frame-line.left {
+            left: 0;
+            top: 50%;
+            width: 2px;
+            height: 0;
+            transform: translateY(-50%);
+            animation: expandVertical 0.6s ease-out 2.4s forwards;
+        }
+
+        .frame-line.right {
+            right: 0;
+            top: 50%;
+            width: 2px;
+            height: 0;
+            transform: translateY(-50%);
+            animation: expandVertical 0.6s ease-out 2.4s forwards;
+        }
+
+        @keyframes expandVertical {
+            0% { height: 0; }
+            100% { height: 100%; }
+        }
+
+        /* Corner accents */
+        .corner {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #7ec8e3;
+            opacity: 0;
+            animation: cornerFadeIn 0.3s ease-out 3s forwards;
+            box-shadow: 0 0 8px rgba(126, 200, 227, 0.5);
+        }
+
+        .corner.top-left {
+            top: -6px;
+            left: -6px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .corner.top-right {
+            top: -6px;
+            right: -6px;
+            border-left: none;
+            border-bottom: none;
+        }
+
+        .corner.bottom-left {
+            bottom: -6px;
+            left: -6px;
+            border-right: none;
+            border-top: none;
+        }
+
+        .corner.bottom-right {
+            bottom: -6px;
+            right: -6px;
+            border-left: none;
+            border-top: none;
+        }
+
+        @keyframes cornerFadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        /* Title */
+        .title {
+            color: #e0e0e0;
+            font-size: clamp(24px, 5vw, 48px);
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            opacity: 0;
+            text-shadow:
+                0 0 10px rgba(126, 200, 227, 0.5),
+                0 0 20px rgba(126, 200, 227, 0.3),
+                0 0 40px rgba(126, 200, 227, 0.1);
+            animation: titleFadeIn 1s ease-out 2.8s forwards;
+            z-index: 2;
+        }
+
+        @keyframes titleFadeIn {
+            0% {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Decorative horizontal lines above/below title */
+        .title-accent {
+            position: absolute;
+            width: 40%;
+            height: 1px;
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                rgba(126, 200, 227, 0.6) 50%,
+                transparent 100%
+            );
+            opacity: 0;
+            animation: accentFadeIn 0.8s ease-out 3.2s forwards;
+        }
+
+        .title-accent.top {
+            top: 35%;
+        }
+
+        .title-accent.bottom {
+            bottom: 35%;
+        }
+
+        @keyframes accentFadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="transition-container">
+        <div class="scanlines"></div>
+        <div class="sweep-line"></div>
+
+        <div class="frame">
+            <div class="frame-line top"></div>
+            <div class="frame-line bottom"></div>
+            <div class="frame-line left"></div>
+            <div class="frame-line right"></div>
+
+            <div class="corner top-left"></div>
+            <div class="corner top-right"></div>
+            <div class="corner bottom-left"></div>
+            <div class="corner bottom-right"></div>
+
+            <div class="title-accent top"></div>
+            <div class="title-accent bottom"></div>
+
+            <h1 class="title">In the Ivory Tower</h1>
+        </div>
+    </div>
+
+    <script>
+        // Return keyboard focus to game
+        if (typeof PortalsSdk !== 'undefined') {
+            PortalsSdk.focusGameKeyboard();
+        }
+    </script>
+</body>
+</html>
