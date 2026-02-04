@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Iframe Debugger</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                background: black;
+                overflow: hidden;
+                position: relative;
+            }
+            #terminal {
+                width: 100%;
+                height: 100vh;
+                background: black;
+                color: #0f0; /* Classic green */
+                font-family: "Courier New", monospace;
+                font-size: 16px;
+                padding: 20px;
+                box-sizing: border-box;
+                overflow-y: scroll;
+                white-space: pre-line;
+                word-wrap: break-word;
+                line-height: 1.5;
+            }
+            #terminal::-webkit-scrollbar {
+                display: none;
+            }
+            #terminal {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            #terminal::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: repeating-linear-gradient(
+                    transparent 0%,
+                    rgba(0, 0, 0, 0.05) 1px,
+                    transparent 2px
+                );
+                pointer-events: none;
+            }
+            .prompt {
+                color: #808080; /* Grey for >>> */
+            }
+            .timestamp {
+                color: #fff; /* White for timestamp */
+            }
+            #close-btn {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                color: #0f0; /* Green X */
+                font-size: 20px;
+                cursor: pointer;
+                z-index: 10;
+                font-family: "Courier New", monospace;
+                transition: color 0.2s;
+            }
+            #close-btn:hover {
+                color: #fff;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="close-btn">X</div>
+        <div id="terminal"></div>
+        <script src="https://portals-labs.github.io/portals-sdk/portals-sdk.js"></script>
+        <script>
+            // Add click handler for close button
+            document
+                .getElementById("close-btn")
+                .addEventListener("click", () => {
+                    PortalsSdk.closeIframe();
+                });
+
+            function appendToTerminal(text) {
+                const term = document.getElementById("terminal");
+                const line = document.createElement("div");
+
+                // Get current timestamp
+                const now = new Date();
+                const timestamp = now
+                    .toISOString()
+                    .replace("T", " ")
+                    .replace(/\..+/, "")
+                    .replace("Z", "");
+
+                // Build the line with styled spans
+                line.innerHTML = `<span class="prompt">>>></span> ${text} <span class="timestamp">[${timestamp}]</span>`;
+
+                term.appendChild(line);
+                term.scrollTop = term.scrollHeight;
+            }
+
+            // Set up message listener
+            PortalsSdk.setMessageListener((message) => {
+                appendToTerminal(message);
+            });
+
+            // Focus game keyboard on load
+            PortalsSdk.focusGameKeyboard();
+
+            // Add initial message
+            appendToTerminal("Iframe debugger initialized. Listening for messages...");
+        </script>
+    </body>
+</html>
