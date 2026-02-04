@@ -14,7 +14,7 @@ A retro-styled terminal interface for debugging and testing iframe messages in P
 
 ### Hosted URL
 ```
-https://[your-github-pages-url]/iframe-debugger/
+https://busportals.github.io/portals-games/iframe-debugger/
 ```
 
 ### Sending Messages
