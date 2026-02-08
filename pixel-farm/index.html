@@ -303,17 +303,17 @@
             return;
         }
 
-        // Key state: w:{"player"="1"}, a:{"player"="0"}, s:..., d:...
-        const keyMatch = message.match(/^([wasd]):/);
+        // Key state: "w:0", "w:1", or "w:{"player"="1"}"
+        const keyMatch = message.match(/^([wasd]):(.*)/);
         if (keyMatch) {
-            parseKeyData(keyMatch[1], message.substring(2));
+            parseKeyData(keyMatch[1], keyMatch[2]);
             return;
         }
 
-        // Username: "name: buster" or "name:buster"
+        // Username: "name: buster" or "name: "buster""
         const nameMatch = message.match(/^name:\s*(.+)/i);
         if (nameMatch) {
-            const username = nameMatch[1].trim();
+            const username = nameMatch[1].trim().replace(/^"|"$/g, '');
             gameState.localUsername = username;
             // Link to existing player if already created from position data
             if (gameState.players.has(username)) {
@@ -325,8 +325,18 @@
     }
 
     function parseKeyData(key, data) {
-        // Format: {"buster"="1", "player2"="0"}
         let str = data.trim();
+
+        // Simple format: "w:0" or "w:1" - apply to local player
+        if (str === '0' || str === '1') {
+            const val = parseInt(str, 10);
+            if (gameState.localPlayer) {
+                gameState.localPlayer.keys[key] = val;
+            }
+            return;
+        }
+
+        // Per-player format: {"buster"="1", "player2"="0"}
         if (str.startsWith('{')) str = str.substring(1);
         if (str.endsWith('}')) str = str.substring(0, str.length - 1);
 
