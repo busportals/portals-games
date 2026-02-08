@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pixel Farm</title>
+    <script src="https://portals-labs.github.io/portals-sdk/portals-sdk.js?v=20260131"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #2d5a1e;
+            font-family: 'Courier New', monospace;
+            user-select: none;
+        }
+
+        #game-canvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        #debug-overlay {
+            position: fixed;
+            top: 8px;
+            left: 8px;
+            color: #ffffff;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+            z-index: 500;
+            pointer-events: none;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            line-height: 1.5;
+            display: none;
+        }
+
+        #debug-overlay.visible {
+            display: block;
+        }
+
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a1a1e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #a0a0a0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            z-index: 2000;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">Loading assets...</div>
+    <canvas id="game-canvas"></canvas>
+    <div id="debug-overlay"></div>
+
+    <script>
+    // ============================================================
+    // CONSTANTS
+    // ============================================================
+    const TILE_SIZE = 48;         // native grass tile size in px
+    const SPRITE_FRAME = 16;      // native character frame size
+    const SPRITE_SCALE = 3;       // scale character to match tiles (16*3=48)
+    const CHAR_SIZE = SPRITE_FRAME * SPRITE_SCALE; // 48px rendered
+
+    const WORLD_TILES = 20;
+    const WORLD_PIXELS = WORLD_TILES * TILE_SIZE;
+
+    // 1 Portals unit = 1 tile
+    const UNITY_SCALE = TILE_SIZE;
+
+    // Sprite sheet layout (hero.png: 48x64, 3 cols x 4 rows, each frame 16x16)
+    const DIR_DOWN  = 0;
+    const DIR_LEFT  = 1;
+    const DIR_RIGHT = 2;
+    const DIR_UP    = 3;
+
+    // Walk animation: cycle through frames 0→1→0→2 (standing→step1→standing→step2)
+    const WALK_CYCLE = [0, 1, 0, 2];
+    const ANIM_FRAME_MS = 150; // ms per animation frame
+
+    // Fence colors (programmatic until we extract fence sprites)
+    const FENCE_PLANK = '#8B6914';
+    const FENCE_DARK  = '#6B4F10';
+    const FENCE_POST  = '#7A5C12';
+    const FENCE_NAIL  = '#4a3a0a';
+
+    // ============================================================
+    // ASSET LOADING
+    // ============================================================
+    const assets = {};
+
+    function loadImage(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('Failed to load: ' + src));
+            img.src = src;
+        });
+    }
+
+    async function loadAllAssets() {
+        const [hero, grass1, grass2, grass3] = await Promise.all([
+            loadImage('assets/hero.png'),
+            loadImage('assets/grass-tile.png'),
+            loadImage('assets/grass-tile-2.png'),
+            loadImage('assets/grass-tile-3.png'),
+        ]);
+        assets.hero = hero;
+        assets.grass = [grass1, grass2, grass3];
+    }
+
+    // ============================================================
+    // GAME STATE
+    // ============================================================
+    const gameState = {
+        running: false,
+        tilemap: null,
+        camera: { x: 0, y: 0 },
+        localUsername: null,
+        players: new Map(),
+        localPlayer: null,
+        lastFrameTime: 0,
+        debugMode: false
+    };
+
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // ============================================================
+    // TILEMAP
+    // ============================================================
+    function seededRandom(seed) {
+        let s = seed;
+        return function() {
+            s = (s * 16807 + 0) % 2147483647;
+            return (s - 1) / 2147483646;
+        };
+    }
+
+    function generateTilemap(width, height) {
+        const rng = seededRandom(42);
+        const map = [];
+        for (let y = 0; y < height; y++) {
+            const row = [];
+            for (let x = 0; x < width; x++) {
+                const isFence = x === 0 || x === width - 1 || y === 0 || y === height - 1;
+                if (isFence) {
+                    let fenceType = 'horizontal';
+                    if (x === 0 || x === width - 1) fenceType = 'vertical';
+                    if ((x === 0 || x === width - 1) && (y === 0 || y === height - 1)) fenceType = 'corner';
+                    row.push({ type: 'fence', fenceType });
+                } else {
+                    row.push({ type: 'grass', variant: Math.floor(rng() * 3) });
+                }
+            }
+            map.push(row);
+        }
+        return map;
+    }
+
+    function drawFenceTile(ctx, screenX, screenY, fenceType) {
+        // Grass underneath
+        ctx.drawImage(assets.grass[0], screenX, screenY, TILE_SIZE, TILE_SIZE);
+
+        if (fenceType === 'horizontal') {
+            ctx.fillStyle = FENCE_POST;
+            ctx.fillRect(screenX + 4, screenY + 8, 6, 32);
+            ctx.fillRect(screenX + 38, screenY + 8, 6, 32);
+            ctx.fillStyle = FENCE_PLANK;
+            ctx.fillRect(screenX, screenY + 12, TILE_SIZE, 7);
+            ctx.fillRect(screenX, screenY + 28, TILE_SIZE, 7);
+            ctx.fillStyle = FENCE_DARK;
+            ctx.fillRect(screenX, screenY + 18, TILE_SIZE, 2);
+            ctx.fillRect(screenX, screenY + 34, TILE_SIZE, 2);
+            ctx.fillStyle = FENCE_NAIL;
+            ctx.fillRect(screenX + 6, screenY + 14, 2, 2);
+            ctx.fillRect(screenX + 6, screenY + 30, 2, 2);
+            ctx.fillRect(screenX + 40, screenY + 14, 2, 2);
+            ctx.fillRect(screenX + 40, screenY + 30, 2, 2);
+        } else if (fenceType === 'vertical') {
+            ctx.fillStyle = FENCE_POST;
+            ctx.fillRect(screenX + 18, screenY, 12, TILE_SIZE);
+            ctx.fillStyle = FENCE_PLANK;
+            ctx.fillRect(screenX + 14, screenY + 8, 20, 6);
+            ctx.fillRect(screenX + 14, screenY + 34, 20, 6);
+            ctx.fillStyle = FENCE_DARK;
+            ctx.fillRect(screenX + 18, screenY, 2, TILE_SIZE);
+            ctx.fillRect(screenX + 28, screenY, 2, TILE_SIZE);
+        } else if (fenceType === 'corner') {
+            ctx.fillStyle = FENCE_POST;
+            ctx.fillRect(screenX + 12, screenY + 6, 24, 36);
+            ctx.fillStyle = FENCE_PLANK;
+            ctx.fillRect(screenX + 14, screenY + 8, 20, 32);
+            ctx.fillStyle = FENCE_DARK;
+            ctx.fillRect(screenX + 22, screenY + 6, 3, 36);
+            ctx.fillRect(screenX + 12, screenY + 22, 24, 3);
+        }
+    }
+
+    function drawTilemap(ctx, tilemap, cameraX, cameraY) {
+        const startX = Math.max(0, Math.floor(cameraX / TILE_SIZE));
+        const startY = Math.max(0, Math.floor(cameraY / TILE_SIZE));
+        const endX = Math.min(WORLD_TILES, Math.ceil((cameraX + canvas.width) / TILE_SIZE) + 1);
+        const endY = Math.min(WORLD_TILES, Math.ceil((cameraY + canvas.height) / TILE_SIZE) + 1);
+
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
+                const tile = tilemap[y][x];
+                const sx = Math.floor(x * TILE_SIZE - cameraX);
+                const sy = Math.floor(y * TILE_SIZE - cameraY);
+
+                if (tile.type === 'grass') {
+                    ctx.drawImage(assets.grass[tile.variant], sx, sy, TILE_SIZE, TILE_SIZE);
+                } else if (tile.type === 'fence') {
+                    drawFenceTile(ctx, sx, sy, tile.fenceType);
+                }
+            }
+        }
+    }
+
+    // ============================================================
+    // CHARACTER SPRITE
+    // ============================================================
+
+    function drawHeroSprite(ctx, screenX, screenY, direction, frameIndex) {
+        // screenX/screenY = center-bottom (feet position) of character
+        // Sprite sheet: 3 cols x 4 rows, each frame 16x16
+        const srcX = frameIndex * SPRITE_FRAME;
+        const srcY = direction * SPRITE_FRAME;
+
+        const drawX = Math.floor(screenX - CHAR_SIZE / 2);
+        const drawY = Math.floor(screenY - CHAR_SIZE);
+
+        ctx.drawImage(
+            assets.hero,
+            srcX, srcY, SPRITE_FRAME, SPRITE_FRAME,  // source rect
+            drawX, drawY, CHAR_SIZE, CHAR_SIZE         // dest rect (scaled 3x)
+        );
+    }
+
+    function drawPlayerName(ctx, centerX, topY, name) {
+        ctx.font = '11px Courier New';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+
+        // Outline
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+            ctx.fillText(name, centerX + dx, topY + dy);
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(name, centerX, topY);
+    }
+
+    // ============================================================
+    // PLAYER OBJECT
+    // ============================================================
+
+    function createPlayer(username, canvasX, canvasY) {
+        return {
+            username,
+            x: canvasX,
+            y: canvasY,
+            targetX: canvasX,
+            targetY: canvasY,
+            direction: DIR_DOWN,
+            walkCycleIndex: 0,
+            animTimer: 0,
+            moving: false
+        };
+    }
+
+    function updatePlayerAnimation(player, dt) {
+        // Determine if moving (distance to target)
+        const dx = player.targetX - player.x;
+        const dy = player.targetY - player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        player.moving = dist > 1.5;
+
+        // Update facing direction based on movement
+        if (player.moving) {
+            if (Math.abs(dx) > Math.abs(dy)) {
+                player.direction = dx > 0 ? DIR_RIGHT : DIR_LEFT;
+            } else {
+                player.direction = dy > 0 ? DIR_DOWN : DIR_UP;
+            }
+
+            // Advance walk animation
+            player.animTimer += dt;
+            if (player.animTimer >= ANIM_FRAME_MS) {
+                player.animTimer -= ANIM_FRAME_MS;
+                player.walkCycleIndex = (player.walkCycleIndex + 1) % WALK_CYCLE.length;
+            }
+        } else {
+            // Standing still - reset to idle frame
+            player.walkCycleIndex = 0;
+            player.animTimer = 0;
+        }
+    }
+
+    function getPlayerFrame(player) {
+        return WALK_CYCLE[player.walkCycleIndex];
+    }
+
+    // ============================================================
+    // COORDINATE MAPPING
+    // ============================================================
+
+    // Unity (0,0) maps to the center of the tile world
+    const WORLD_CENTER_X = (WORLD_TILES / 2) * TILE_SIZE;
+    const WORLD_CENTER_Y = (WORLD_TILES / 2) * TILE_SIZE;
+
+    function unityToCanvas(unityX, unityZ) {
+        return {
+            x: WORLD_CENTER_X + (unityX * UNITY_SCALE),
+            y: WORLD_CENTER_Y - (unityZ * UNITY_SCALE)
+        };
+    }
+
+    // ============================================================
+    // PORTALS SDK INTEGRATION
+    // ============================================================
+
+    function initPortalsSDK() {
+        if (typeof PortalsSdk === 'undefined') {
+            console.log('PortalsSdk not available - standalone mode');
+            return;
+        }
+
+        PortalsSdk.setMessageListener((message) => {
+            console.log('Received:', message);
+            handlePortalsMessage(message);
+        });
+    }
+
+    function handlePortalsMessage(message) {
+        // Position data: {"player1"="(x, y, z)", "player2"="(x, y, z)"}
+        if (message.includes('=(') || message.includes('= (')) {
+            parsePositionData(message);
+            return;
+        }
+
+        // Username: "playerName"
+        if (message.startsWith('"') && !message.includes('=')) {
+            gameState.localUsername = message.replace(/"/g, '').trim();
+            console.log('Local username:', gameState.localUsername);
+            return;
+        }
+    }
+
+    function parsePositionData(message) {
+        let data = message.trim();
+        if (data.startsWith('{')) data = data.substring(1);
+        if (data.endsWith('}')) data = data.substring(0, data.length - 1);
+
+        const pattern = /"([^"]+)"\s*=\s*"\(([^)]+)\)"/g;
+        let match;
+
+        while ((match = pattern.exec(data)) !== null) {
+            const username = match[1];
+            const coords = match[2].split(',').map(s => parseFloat(s.trim()));
+
+            if (coords.length >= 3) {
+                const [ux, uy, uz] = coords;
+                const pos = unityToCanvas(ux, uz);
+
+                if (gameState.players.has(username)) {
+                    const player = gameState.players.get(username);
+                    player.targetX = pos.x;
+                    player.targetY = pos.y;
+                } else {
+                    const player = createPlayer(username, pos.x, pos.y);
+                    gameState.players.set(username, player);
+                }
+
+                // Identify local player
+                if (gameState.localUsername && username === gameState.localUsername) {
+                    gameState.localPlayer = gameState.players.get(username);
+                }
+            }
+        }
+
+        // Single player fallback: assume first player is local
+        if (!gameState.localUsername && gameState.players.size === 1) {
+            const [username, player] = gameState.players.entries().next().value;
+            gameState.localUsername = username;
+            gameState.localPlayer = player;
+        }
+    }
+
+    // ============================================================
+    // CAMERA
+    // ============================================================
+
+    function updateCamera() {
+        let tx, ty;
+
+        if (gameState.localPlayer) {
+            tx = gameState.localPlayer.x - canvas.width / 2;
+            ty = gameState.localPlayer.y - canvas.height / 2;
+        } else {
+            tx = WORLD_CENTER_X - canvas.width / 2;
+            ty = WORLD_CENTER_Y - canvas.height / 2;
+        }
+
+        gameState.camera.x = Math.max(0, Math.min(tx, WORLD_PIXELS - canvas.width));
+        gameState.camera.y = Math.max(0, Math.min(ty, WORLD_PIXELS - canvas.height));
+    }
+
+    // ============================================================
+    // GAME LOOP
+    // ============================================================
+
+    function update(dt) {
+        const lerpSpeed = 0.12;
+
+        for (const [, player] of gameState.players) {
+            // Interpolate position
+            player.x += (player.targetX - player.x) * lerpSpeed;
+            player.y += (player.targetY - player.y) * lerpSpeed;
+
+            // Update animation
+            updatePlayerAnimation(player, dt);
+        }
+    }
+
+    function render() {
+        ctx.imageSmoothingEnabled = false;
+
+        // Clear
+        ctx.fillStyle = '#2d5a1e';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Tilemap
+        if (gameState.tilemap) {
+            drawTilemap(ctx, gameState.tilemap, gameState.camera.x, gameState.camera.y);
+        }
+
+        // Players sorted by Y (depth sorting)
+        const sorted = [...gameState.players.values()].sort((a, b) => a.y - b.y);
+
+        for (const player of sorted) {
+            const sx = player.x - gameState.camera.x;
+            const sy = player.y - gameState.camera.y;
+
+            // Cull offscreen
+            if (sx < -CHAR_SIZE || sx > canvas.width + CHAR_SIZE ||
+                sy < -CHAR_SIZE || sy > canvas.height + CHAR_SIZE) continue;
+
+            // Draw character sprite
+            const frame = getPlayerFrame(player);
+            drawHeroSprite(ctx, sx, sy, player.direction, frame);
+
+            // Draw name above head
+            drawPlayerName(ctx, sx, sy - CHAR_SIZE - 4, player.username);
+        }
+    }
+
+    function gameLoop(timestamp) {
+        if (!gameState.running) return;
+
+        const dt = timestamp - gameState.lastFrameTime;
+        gameState.lastFrameTime = timestamp;
+
+        update(dt);
+        updateCamera();
+        render();
+        updateDebugOverlay();
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+
+    // ============================================================
+    // DEBUG
+    // ============================================================
+
+    function updateDebugOverlay() {
+        if (!gameState.debugMode) return;
+        const el = document.getElementById('debug-overlay');
+        const lines = [
+            `Players: ${gameState.players.size}`,
+            `Local: ${gameState.localUsername || '?'}`,
+            `Cam: ${Math.floor(gameState.camera.x)}, ${Math.floor(gameState.camera.y)}`
+        ];
+        if (gameState.localPlayer) {
+            const p = gameState.localPlayer;
+            lines.push(`Pos: ${Math.floor(p.x)}, ${Math.floor(p.y)}`);
+            lines.push(`Dir: ${['down','left','right','up'][p.direction]} F:${getPlayerFrame(p)}`);
+        }
+        el.textContent = lines.join('\n');
+    }
+
+    // ============================================================
+    // MOCK MODE (standalone testing without Portals)
+    // ============================================================
+
+    function startMockMode() {
+        console.log('Mock mode - WASD to move');
+
+        const center = unityToCanvas(0, 0);
+        const local = createPlayer('TestPlayer', center.x, center.y);
+        gameState.localUsername = 'TestPlayer';
+        gameState.players.set('TestPlayer', local);
+        gameState.localPlayer = local;
+
+        // Second mock player wandering
+        const otherPos = unityToCanvas(3, 2);
+        const other = createPlayer('FarmFriend', otherPos.x, otherPos.y);
+        gameState.players.set('FarmFriend', other);
+
+        let angle = 0;
+        setInterval(() => {
+            angle += 0.03;
+            const p = unityToCanvas(3 + Math.cos(angle) * 3, 2 + Math.sin(angle) * 3);
+            other.targetX = p.x;
+            other.targetY = p.y;
+        }, 100);
+
+        // WASD movement
+        const speed = 4;
+        const keys = {};
+        window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
+        window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+
+        setInterval(() => {
+            if (!gameState.localPlayer) return;
+            const p = gameState.localPlayer;
+
+            if (keys['w'] || keys['arrowup'])    p.targetY -= speed;
+            if (keys['s'] || keys['arrowdown'])  p.targetY += speed;
+            if (keys['a'] || keys['arrowleft'])  p.targetX -= speed;
+            if (keys['d'] || keys['arrowright']) p.targetX += speed;
+
+            // Keep inside fence
+            const min = TILE_SIZE * 1.5;
+            const max = WORLD_PIXELS - TILE_SIZE * 1.5;
+            p.targetX = Math.max(min, Math.min(p.targetX, max));
+            p.targetY = Math.max(min, Math.min(p.targetY, max));
+        }, 16);
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+
+    async function init() {
+        try {
+            await loadAllAssets();
+        } catch (e) {
+            document.getElementById('loading').textContent = 'Failed to load assets: ' + e.message;
+            return;
+        }
+
+        // Hide loading screen
+        document.getElementById('loading').style.display = 'none';
+
+        // Setup canvas
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Debug toggle
+        window.addEventListener('keydown', (e) => {
+            if (e.key === '`') {
+                gameState.debugMode = !gameState.debugMode;
+                document.getElementById('debug-overlay').classList.toggle('visible', gameState.debugMode);
+            }
+        });
+
+        // SDK
+        initPortalsSDK();
+
+        // Generate world
+        gameState.tilemap = generateTilemap(WORLD_TILES, WORLD_TILES);
+
+        // Mock mode if no SDK
+        if (typeof PortalsSdk === 'undefined') {
+            startMockMode();
+        } else {
+            PortalsSdk.focusGameKeyboard();
+        }
+
+        // Start
+        gameState.running = true;
+        gameState.lastFrameTime = performance.now();
+        requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener('load', init);
+    </script>
+</body>
+</html>
