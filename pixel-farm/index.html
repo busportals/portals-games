@@ -310,10 +310,16 @@
             return;
         }
 
-        // Username: "playerName"
-        if (message.startsWith('"') && !message.includes('=')) {
-            gameState.localUsername = message.replace(/"/g, '').trim();
-            console.log('Local username:', gameState.localUsername);
+        // Username: "name: buster" or "name:buster"
+        const nameMatch = message.match(/^name:\s*(.+)/i);
+        if (nameMatch) {
+            const username = nameMatch[1].trim();
+            gameState.localUsername = username;
+            // Link to existing player if already created from position data
+            if (gameState.players.has(username)) {
+                gameState.localPlayer = gameState.players.get(username);
+            }
+            console.log('Local username set:', username);
             return;
         }
     }
