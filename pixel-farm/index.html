@@ -159,17 +159,32 @@
     function drawHeroSprite(ctx, screenX, screenY, direction, frameIndex) {
         // screenX/screenY = center-bottom (feet position) of character
         // Sprite sheet: 3 cols x 4 rows, each frame 16x16
+        // Right = horizontally flipped Left (row 3 is unreliable)
+        const useFlip = (direction === DIR_RIGHT);
+        const srcRow = useFlip ? DIR_LEFT : direction;
         const srcX = frameIndex * SPRITE_FRAME;
-        const srcY = direction * SPRITE_FRAME;
+        const srcY = srcRow * SPRITE_FRAME;
 
         const drawX = Math.floor(screenX - CHAR_SIZE / 2);
         const drawY = Math.floor(screenY - CHAR_SIZE);
 
-        ctx.drawImage(
-            assets.hero,
-            srcX, srcY, SPRITE_FRAME, SPRITE_FRAME,  // source rect
-            drawX, drawY, CHAR_SIZE, CHAR_SIZE         // dest rect (scaled 3x)
-        );
+        if (useFlip) {
+            ctx.save();
+            ctx.translate(screenX, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(
+                assets.hero,
+                srcX, srcY, SPRITE_FRAME, SPRITE_FRAME,
+                -CHAR_SIZE / 2, drawY, CHAR_SIZE, CHAR_SIZE
+            );
+            ctx.restore();
+        } else {
+            ctx.drawImage(
+                assets.hero,
+                srcX, srcY, SPRITE_FRAME, SPRITE_FRAME,
+                drawX, drawY, CHAR_SIZE, CHAR_SIZE
+            );
+        }
     }
 
     function drawPlayerName(ctx, centerX, topY, name) {
