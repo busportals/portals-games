@@ -364,20 +364,26 @@
     }
 
     function parsePositionData(message) {
+        console.log('parsePositionData called with:', message);
         let data = message.trim();
         if (data.startsWith('{')) data = data.substring(1);
         if (data.endsWith('}')) data = data.substring(0, data.length - 1);
+        console.log('Stripped data:', data);
 
         const pattern = /"([^"]+)"\s*=\s*"\(([^)]+)\)"/g;
         let match;
+        let matchCount = 0;
 
         while ((match = pattern.exec(data)) !== null) {
+            matchCount++;
             const username = match[1];
             const coords = match[2].split(',').map(s => parseFloat(s.trim()));
+            console.log('Matched player:', username, 'coords:', coords);
 
             if (coords.length >= 3) {
                 const [ux, uy, uz] = coords;
                 const pos = unityToCanvas(ux, uz);
+                console.log('Canvas pos:', pos.x, pos.y);
 
                 if (gameState.players.has(username)) {
                     const player = gameState.players.get(username);
@@ -386,6 +392,7 @@
                 } else {
                     const player = createPlayer(username, pos.x, pos.y);
                     gameState.players.set(username, player);
+                    console.log('Created player:', username, 'at', pos.x, pos.y);
                 }
 
                 // Identify local player
@@ -395,12 +402,19 @@
             }
         }
 
+        if (matchCount === 0) {
+            console.warn('No regex matches found in:', data);
+        }
+
         // Single player fallback: assume first player is local
         if (!gameState.localUsername && gameState.players.size === 1) {
             const [username, player] = gameState.players.entries().next().value;
             gameState.localUsername = username;
             gameState.localPlayer = player;
+            console.log('Set local player:', username);
         }
+
+        console.log('Total players:', gameState.players.size, 'Local:', gameState.localUsername);
     }
 
     // ============================================================
@@ -592,11 +606,19 @@
         // Generate world
         gameState.tilemap = generateTilemap(WORLD_TILES, WORLD_TILES);
 
-        // Mock mode if no SDK
-        if (typeof PortalsSdk === 'undefined') {
-            startMockMode();
-        } else {
+        // Detect if we're inside a Portals iframe
+        let inPortals = false;
+        try {
+            inPortals = (window !== window.top);
+        } catch (e) {
+            inPortals = true; // cross-origin = definitely in an iframe
+        }
+        console.log('inPortals:', inPortals);
+
+        if (inPortals) {
             PortalsSdk.focusGameKeyboard();
+        } else {
+            startMockMode();
         }
 
         // Start
