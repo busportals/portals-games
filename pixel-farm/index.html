@@ -83,10 +83,11 @@
     const UNITY_SCALE = TILE_SIZE;
 
     // Sprite sheet layout (hero.png: 48x64, 3 cols x 4 rows, each frame 16x16)
-    const DIR_DOWN  = 0;
-    const DIR_LEFT  = 1;
-    const DIR_RIGHT = 2;
-    const DIR_UP    = 3;
+    // Row 0: Left, Row 1: Up (back), Row 2: Down (facing camera), Row 3: Right
+    const DIR_LEFT  = 0;
+    const DIR_UP    = 1;
+    const DIR_DOWN  = 2;
+    const DIR_RIGHT = 3;
 
     // Walk animation: cycle through frames 0→1→0→2 (standing→step1→standing→step2)
     const WALK_CYCLE = [0, 1, 0, 2];
@@ -382,23 +383,31 @@
         // X is always 0: full world width fits the screen
         gameState.camera.x = 0;
 
-        // Y follows player, scrolls smoothly when world is taller than screen
         const viewHeight = canvas.height / renderScale;
 
-        let ty;
-        if (gameState.localPlayer) {
-            ty = gameState.localPlayer.y - viewHeight / 2;
-        } else {
-            ty = WORLD_CENTER_Y - viewHeight / 2;
+        // Find player to follow: local player, or first available player
+        let followPlayer = gameState.localPlayer;
+        if (!followPlayer && gameState.players.size > 0) {
+            followPlayer = gameState.players.values().next().value;
         }
 
+        let targetY;
+        if (followPlayer) {
+            targetY = followPlayer.y - viewHeight / 2;
+        } else {
+            targetY = WORLD_CENTER_Y - viewHeight / 2;
+        }
+
+        // Clamp target to world bounds
         const maxY = WORLD_PIXELS - viewHeight;
         if (maxY <= 0) {
-            // World fits vertically, center it
-            gameState.camera.y = maxY / 2;
+            targetY = maxY / 2;
         } else {
-            gameState.camera.y = Math.max(0, Math.min(ty, maxY));
+            targetY = Math.max(0, Math.min(targetY, maxY));
         }
+
+        // Smooth lerp toward target
+        gameState.camera.y += (targetY - gameState.camera.y) * 0.08;
     }
 
     // ============================================================
