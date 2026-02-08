@@ -350,7 +350,7 @@
 
     function handlePortalsMessage(message) {
         // Position data: {"player1"="(x, y, z)", "player2"="(x, y, z)"}
-        if (message.includes('=(') || message.includes('= (')) {
+        if (message.includes('="(') || message.includes('= "(')) {
             parsePositionData(message);
             return;
         }
