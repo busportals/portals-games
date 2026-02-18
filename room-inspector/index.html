@@ -1,0 +1,2628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Room Inspector - Portals</title>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+  }
+}
+</script>
+
+<style>
+/* ── Reset & Base ────────────────────────────────────────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  width: 100%; height: 100%;
+}
+
+/* ── Drop Overlay ────────────────────────────────────────────── */
+#drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(30, 30, 46, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#drop-overlay.hidden {
+  display: none;
+}
+
+#drop-overlay .drop-box {
+  border: 2px dashed #585b70;
+  border-radius: 12px;
+  padding: 48px 64px;
+  text-align: center;
+  color: #a6adc8;
+  font-size: 18px;
+  pointer-events: none;
+}
+
+#drop-overlay .drop-box .drop-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #6c7086;
+}
+
+/* ── Filter Bar ──────────────────────────────────────────────── */
+#filter-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #313244;
+  background: #181825;
+  flex-shrink: 0;
+}
+
+.filter-btn {
+  background: #313244;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  padding: 4px 12px;
+  color: #cdd6f4;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.filter-btn:hover {
+  background: #45475a;
+}
+
+#search {
+  background: #313244;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  padding: 4px 12px;
+  color: #cdd6f4;
+  font-size: 13px;
+  flex-grow: 1;
+  outline: none;
+  font-family: inherit;
+}
+
+#search::placeholder {
+  color: #6c7086;
+}
+
+#search:focus {
+  border-color: #585b70;
+}
+
+/* ── Main Grid ───────────────────────────────────────────────── */
+#main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: var(--left-width) 4px 1fr 4px var(--right-width);
+  min-height: 0;
+  --left-width: 280px;
+  --right-width: 320px;
+}
+
+/* ── Panels ──────────────────────────────────────────────────── */
+#outline-panel {
+  overflow-y: auto;
+  background: #181825;
+  min-height: 0;
+}
+
+#scene-panel {
+  overflow: hidden;
+  position: relative;
+  min-height: 0;
+}
+
+#scene-panel canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#detail-panel {
+  overflow-y: auto;
+  background: #181825;
+  min-height: 0;
+}
+
+/* ── Dividers ────────────────────────────────────────────────── */
+.divider {
+  cursor: col-resize;
+  background: #313244;
+  transition: background 0.15s;
+}
+
+.divider:hover, .divider.active {
+  background: #585b70;
+}
+
+/* ── Status Bar ──────────────────────────────────────────────── */
+#status-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  padding: 4px 12px;
+  border-top: 1px solid #313244;
+  font-size: 12px;
+  color: #a6adc8;
+  flex-shrink: 0;
+  background: #181825;
+}
+
+/* ── Tree Nodes ──────────────────────────────────────────────── */
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.tree-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tree-row.selected {
+  background: rgba(137, 180, 250, 0.2);
+}
+
+.tree-row.dimmed {
+  opacity: 0.3;
+}
+
+.tree-row.hovered {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tree-arrow {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #6c7086;
+  transition: transform 0.15s ease;
+}
+
+.tree-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.tree-arrow.has-children {
+  cursor: pointer;
+}
+
+.tree-arrow.has-children:hover {
+  color: #cdd6f4;
+}
+
+.tree-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tree-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.tree-badges {
+  display: flex;
+  gap: 2px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.tree-badge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.tree-eye {
+  width: 20px;
+  text-align: center;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.3;
+  transition: opacity 0.15s;
+  user-select: none;
+}
+.tree-eye:hover { opacity: 1; }
+.tree-eye.visible { opacity: 0.6; }
+.tree-eye.visible:hover { opacity: 1; }
+.tree-eye.hidden-item { opacity: 0.25; color: #f38ba8; }
+
+.tree-children.collapsed {
+  display: none;
+}
+
+/* ── Detail Panel ────────────────────────────────────────────── */
+.detail-header {
+  padding: 12px;
+  border-bottom: 1px solid #313244;
+}
+
+.detail-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.detail-subtitle {
+  font-size: 12px;
+  color: #a6adc8;
+}
+
+.detail-section {
+  border-bottom: 1px solid #313244;
+}
+
+.detail-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #a6adc8;
+}
+
+.detail-section-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.detail-section-body {
+  padding: 4px 12px 8px;
+}
+
+.detail-section-body.collapsed {
+  display: none;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  font-size: 12px;
+}
+
+.detail-label {
+  color: #a6adc8;
+}
+
+.detail-value {
+  color: #cdd6f4;
+  text-align: right;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.color-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* ── JSON Syntax Highlighting ─────────────────────────────────── */
+.json-key { color: #89b4fa; }
+.json-string { color: #a6e3a1; }
+.json-number { color: #89dceb; }
+.json-boolean { color: #fab387; }
+.json-null { color: #6c7086; }
+pre.raw-json { font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-break: break-all; padding: 8px; background: #11111b; border-radius: 4px; max-height: 400px; overflow-y: auto; }
+
+.detail-preview { padding: 8px 12px; border-bottom: 1px solid #313244; }
+.detail-preview img { max-width: 100%; border-radius: 4px; background: #11111b; cursor: pointer; }
+.detail-preview img:hover { outline: 2px solid #89b4fa; }
+.detail-preview-label { font-size: 11px; color: #6c7086; margin-bottom: 4px; }
+
+/* ── Detail Panel extras ──────────────────────────────────────── */
+.detail-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #6c7086;
+  font-size: 13px;
+}
+
+.detail-section-header .section-arrow {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.detail-section-header .section-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.detail-parent-link {
+  color: #89b4fa;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.detail-parent-link:hover {
+  color: #b4d0fb;
+}
+
+.interaction-task {
+  margin-bottom: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  background: #11111b;
+  border-radius: 6px;
+  border-left: 3px solid #45475a;
+  padding: 8px 10px;
+}
+.interaction-task.has-quest { border-left-color: #fab387; }
+.interaction-task.direct { border-left-color: #a6e3a1; }
+
+.interaction-when {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6c7086;
+  margin-bottom: 2px;
+}
+
+.interaction-trigger {
+  color: #a6e3a1;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.interaction-then {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6c7086;
+  margin-top: 6px;
+  margin-bottom: 2px;
+}
+
+.interaction-effect {
+  color: #89b4fa;
+  padding-left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.interaction-effect::before {
+  content: '\2192';
+  color: #45475a;
+}
+
+.interaction-detail {
+  color: #6c7086;
+  padding-left: 28px;
+  font-size: 11px;
+}
+
+.interaction-quest-badge {
+  display: inline-block;
+  background: rgba(250, 179, 135, 0.15);
+  color: #fab387;
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.interaction-state-badge {
+  display: inline-block;
+  background: rgba(137, 180, 250, 0.12);
+  color: #89b4fa;
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.interaction-none {
+  color: #6c7086;
+  font-style: italic;
+  font-size: 12px;
+}
+
+/* ── Filter Dropdowns ─────────────────────────────────────────── */
+.filter-btn-container { position: relative; }
+.filter-btn.active { background: #45475a; border-color: #89b4fa; color: #89b4fa; }
+.filter-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.filter-dropdown.open { display: block; }
+.filter-clear { padding: 4px 12px; font-size: 11px; color: #89b4fa; cursor: pointer; border-bottom: 1px solid #313244; margin-bottom: 4px; }
+.filter-clear:hover { background: rgba(137,180,250,0.1); }
+.filter-item { display: flex; align-items: center; gap: 6px; padding: 4px 12px; font-size: 13px; cursor: pointer; }
+.filter-item:hover { background: rgba(255,255,255,0.06); }
+.filter-item input[type="checkbox"] { accent-color: #89b4fa; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="drop-overlay">
+    <div class="drop-box">
+      Drop snapshot.json here
+      <div class="drop-hint">Visualize and inspect any Portals room data JSON file</div>
+      <div class="drop-hint" style="margin-top: 12px; font-size: 11px; color: #585b70;">3D viewport &middot; Object tree &middot; Interaction inspector &middot; Filter by type, trigger, effect, or quest</div>
+    </div>
+  </div>
+
+  <div id="filter-bar">
+    <div class="filter-btn-container"><button class="filter-btn" id="filter-type">Type</button></div>
+    <div class="filter-btn-container"><button class="filter-btn" id="filter-trigger">Trigger</button></div>
+    <div class="filter-btn-container"><button class="filter-btn" id="filter-effect">Effect</button></div>
+    <div class="filter-btn-container"><button class="filter-btn" id="filter-quest">Quest</button></div>
+    <input type="text" id="search" placeholder="Search items...">
+    <div style="flex-shrink:0; border-left: 1px solid #313244; padding-left: 8px;">
+      <button class="filter-btn" id="view-mode-btn" title="Toggle wireframe / solid">Wireframe</button>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="outline-panel"></div>
+    <div class="divider" id="divider-left"></div>
+    <div id="scene-panel"></div>
+    <div class="divider" id="divider-right"></div>
+    <div id="detail-panel"></div>
+  </div>
+
+  <div id="status-bar">Ready</div>
+</div>
+
+<!-- Drag-and-drop must work even if the module script fails to load -->
+<script>
+// Store loaded data globally so the module can pick it up
+window.__inspectorPendingData = null;
+window.__inspectorReady = false;
+
+document.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); });
+document.addEventListener('dragenter', function(e) { e.preventDefault(); e.stopPropagation(); });
+document.addEventListener('drop', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (window.__inspectorReady) return; // module handles it
+  var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function() {
+    window.__inspectorPendingData = reader.result;
+    var overlay = document.getElementById('drop-overlay');
+    if (overlay) overlay.classList.add('hidden');
+    // If module loaded late, it will pick this up
+  };
+  reader.readAsText(file);
+});
+</script>
+
+<script type="module">
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+// ── GLB Loader Setup ────────────────────────────────────────────
+const gltfLoader = new GLTFLoader();
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/libs/draco/');
+gltfLoader.setDRACOLoader(dracoLoader);
+
+const glbCache = new Map(); // url -> Promise<THREE.Group>
+let glbLoadingCount = 0;
+const GLB_TYPES = new Set(['GLB', 'GlbCollectable', 'Destructible', 'GLBNPC']);
+
+const PORTALS_CDN_BASE = 'https://d365bxku1h71bo.cloudfront.net/uploads/';
+
+function resolveContentUrl(contentString) {
+  if (!contentString) return null;
+  // Full URL — use as-is
+  if (contentString.startsWith('http://') || contentString.startsWith('https://')) return contentString;
+  // '#gltf/...' — user-uploaded asset, strip '#' and prepend CDN base
+  if (contentString.startsWith('#')) {
+    return PORTALS_CDN_BASE + contentString.slice(1);
+  }
+  // '~...' — built-in Portals asset (Firebase storage), can't resolve without bucket info
+  if (contentString.startsWith('~')) return null;
+  // Other relative path
+  return PORTALS_CDN_BASE + contentString;
+}
+
+// ── SVG Icons & Badge Helpers ────────────────────────────────────
+
+const SVG_ICONS = {
+  eye: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+  chevron: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
+};
+
+function makeBadge(letter, title, color) {
+  const el = document.createElement('span');
+  el.className = 'tree-badge-icon';
+  el.textContent = letter;
+  el.title = title;
+  el.style.color = color;
+  return el;
+}
+
+// ── Name Mapping Constants ──────────────────────────────────────
+
+const TYPE_NAMES = {
+  ResizableCube: 'Cube', WorldText: 'Text', SpawnPoint: 'Spawn',
+  GLB: 'Model', GlbCollectable: 'Collectable', Destructible: 'Destructible',
+  GLBNPC: 'NPC', Trigger: 'Trigger', JumpPad: 'Jump Pad',
+  '9Cube': 'Element Cube', Addressable: 'VFX',
+  DefaultPainting: 'Image', DefaultVideo: 'Video', PlaceableTV: 'Screen Share',
+  Light: 'Light', SpotLight: 'Spot Light', BlinkLight: 'Blink Light',
+  Leaderboard: 'Leaderboard', CameraObject: 'Camera', GLBSign: 'Billboard',
+  Portal: 'Portal', Gun: 'Gun', Shotgun: 'Shotgun',
+};
+
+const TYPE_COLORS = {
+  ResizableCube: '#888888', WorldText: '#c0c0c0', SpawnPoint: '#ff69b4',
+  GLB: '#4488ff', GlbCollectable: '#ff8844', Destructible: '#ff4444',
+  GLBNPC: '#cc44ff', Trigger: '#44ff44', JumpPad: '#ffcc00',
+  '9Cube': '#ff6600', Addressable: '#ff44ff',
+  DefaultPainting: '#88ccff', DefaultVideo: '#cc8888', PlaceableTV: '#aa8866',
+  Light: '#ffff44', SpotLight: '#ffff44', BlinkLight: '#ffff44',
+  Leaderboard: '#44cccc', CameraObject: '#ffffff', GLBSign: '#cccc44',
+  Portal: '#8844ff', Gun: '#ff0000', Shotgun: '#ff0000',
+};
+
+const TRIGGER_NAMES = {
+  OnClickEvent: 'On Click', OnEnterEvent: 'On Enter', OnExitEvent: 'On Exit',
+  OnCollideEvent: 'On Collide', OnCollisionStoppedEvent: 'On Collision Stopped',
+  OnHoverStartEvent: 'On Hover Start', OnHoverEndEvent: 'On Hover End',
+  OnPlayerLoggedIn: 'On Player Logged In', OnKeyPressedEvent: 'On Key Pressed',
+  OnKeyReleasedEvent: 'On Key Released', OnPlayerDied: 'On Player Died',
+  OnPlayerRevived: 'On Player Revived', OnPlayerMove: 'On Player Move',
+  OnPlayerStoppedMoving: 'On Player Stopped Moving',
+  OnMicrophoneUnmuted: 'On Mic Unmuted', OnTimerStopped: 'On Timer Stopped',
+  OnCountdownTimerFinished: 'On Countdown Finished',
+  ScoreTrigger: 'Score Trigger', OnAnimationStoppedEvent: 'On Animation Stopped',
+  OnItemCollectedEvent: 'On Item Collected', OnItemClickEvent: 'On Item Click',
+  PlayerLeave: 'Player Leave', SwapVolume: 'Swap Volume',
+};
+
+const EFFECT_NAMES = {
+  ShowObjectEvent: 'Show Object', HideObjectEvent: 'Hide Object',
+  MoveToSpot: 'Move To Spot', PlaySoundOnce: 'Play Sound',
+  PlaySoundInALoop: 'Play Sound Loop', StopSound: 'Stop Sound',
+  NotificationPillEvent: 'Show Notification',
+  TeleportEvent: 'Teleport', AddVelocityToPlayer: 'Add Velocity',
+  ChangePlayerHealth: 'Change Health', DamageOverTime: 'Damage Over Time',
+  LockMovement: 'Lock Movement', UnlockMovement: 'Unlock Movement',
+  UpdateScoreEvent: 'Update Score', UpdateScoreEventString: 'Update Score String',
+  FunctionEffector: 'Function', RunTriggersFromEffector: 'Run Triggers',
+  LockCamera: 'Lock Camera', UnlockCamera: 'Unlock Camera',
+  ChangeCameraZoom: 'Change Zoom', ToggleFreeCam: 'Toggle Free Cam',
+  ChangeCamState: 'Change Cam State', SetCameraFilter: 'Set Camera Filter',
+  ShowOutline: 'Show Outline', HideOutline: 'Hide Outline',
+  StartTimerEffect: 'Start Timer', StopTimerEffect: 'Stop Timer',
+  CancelTimerEffect: 'Cancel Timer',
+  PostScoreToLeaderboard: 'Post to Leaderboard', ClearLeaderboard: 'Clear Leaderboard',
+  ChangeBloom: 'Change Bloom', ChangeTimeOfDay: 'Change Time of Day',
+  ChangeFog: 'Change Fog', RotateSkybox: 'Rotate Skybox',
+  PlayerEmote: 'Player Emote', MutePlayer: 'Mute Player',
+  DuplicateItem: 'Duplicate Item', MoveItemToPlayer: 'Move to Player',
+  PortalsAnimation: 'Animation',
+  DisplayValueEvent: 'Display Value', HideValueEvent: 'Hide Value',
+  ResetAllTasks: 'Reset All Tasks',
+  ChangeAvatarEffector: 'Change Avatar', LockAvatarChange: 'Lock Avatar',
+  UnlockAvatarChange: 'Unlock Avatar', DisplayAvatarScreen: 'Avatar Screen',
+  ChangeMovementProfile: 'Change Movement',
+  DialogEffectorDisplay: 'Dialogue', NPCMessageEvent: 'NPC Message',
+  ChangeAudiusEffect: 'Change Music',
+  HideAllPlayersEvent: 'Hide All Players',
+  StartAutoRun: 'Start Auto Run', StopAutoRun: 'Stop Auto Run',
+  ToggleLockCursor: 'Toggle Lock Cursor',
+  OpenLeaderboardEffect: 'Open Leaderboard',
+  SendMessageToIframes: 'Send to Iframes',
+  ChangeVoiceGroup: 'Change Voice Group',
+  IframeEvent: 'Iframe Event', IframeStopEvent: 'Iframe Stop',
+  RefreshUserInventory: 'Refresh Inventory',
+  ChangeRoundyWearableEffector: 'Change Wearable',
+  DisplaySellSwap: 'Display Sell Swap', HideSellSwap: 'Hide Sell Swap',
+};
+
+const FIELD_NAMES = {
+  col: 'Color', e: 'Emission', o: 'Opacity', c: 'Collider',
+  s: 'Shadows', nav: 'Navmesh', title: 'Title',
+  n: 'Name', a: 'Animation', p: 'Personality',
+  cm: 'Message', pressBtn: 'Show Button',
+  b: 'Brightness', r: 'Range',
+  ang: 'Angle',
+  bd: 'Blink Duration', bi: 'Blink Interval',
+  t: 'Transparent',
+  valueLabel: 'Variable', valueChange: 'Change Amount',
+  displayValue: 'Display Value', se: 'Sound',
+  minRespawnTime: 'Min Respawn', maxRespawnTime: 'Max Respawn',
+  maxHealth: 'Max Health', respawnTime: 'Respawn Time',
+  gn: 'Game Name', ln: 'Score Label', tb: 'Time Based',
+  weaponType: 'Weapon Type', maxDamage: 'Max Damage', minDamage: 'Min Damage',
+  firerate: 'Fire Rate', clipSize: 'Clip Size',
+  sn: 'Spawn Name', auto: 'Auto Enter',
+  text: 'Text', lookAtCamera: 'Billboard',
+};
+
+const QUEST_STATES = {
+  1: 'Not Active', 2: 'Active/Direct', 101: 'Any \u2192 Not Active',
+  111: 'Not Active \u2192 Active', 121: 'Active \u2192 Completed',
+  131: 'Completed \u2192 Active', 141: 'Any \u2192 Completed',
+  151: 'Any \u2192 Active', 161: 'Active \u2192 Not Active',
+  171: 'Completed \u2192 Not Active', 181: 'Not Active \u2192 Completed',
+};
+
+
+// ── Data Loading & Normalization ────────────────────────────────
+
+function loadSnapshot(jsonString) {
+  const raw = JSON.parse(jsonString);
+  const data = {
+    items: {},
+    settings: raw.settings || {},
+    quests: raw.quests || {},
+  };
+
+  for (const [id, item] of Object.entries(raw.roomItems || {})) {
+    const parsed = { ...item, id };
+    let extra = {};
+    if (raw.logic && raw.logic[id]) {
+      extra = typeof raw.logic[id] === 'string' ? JSON.parse(raw.logic[id]) : raw.logic[id];
+    } else if (item.extraData) {
+      extra = typeof item.extraData === 'string' ? JSON.parse(item.extraData) : item.extraData;
+    }
+    parsed.extraData = extra;
+    data.items[id] = parsed;
+  }
+
+  return data;
+}
+
+
+// ── Interaction Analysis ────────────────────────────────────────
+
+function analyzeInteractions(item) {
+  const result = { triggers: [], effects: [], quests: new Set() };
+  const tasks = item.extraData?.Tasks || [];
+
+  for (const task of tasks) {
+    if (task.$type === 'TaskTriggerSubscription') {
+      if (task.Trigger?.$type) result.triggers.push(task.Trigger.$type);
+      if (task.DirectEffector?.Effector?.$type) result.effects.push(task.DirectEffector.Effector.$type);
+      if (task.Name) result.quests.add(task.Name);
+      const eff = task.DirectEffector?.Effector;
+      if (eff?.$type === 'RunTriggersFromEffector' && eff.linkedTasks) {
+        for (const lt of eff.linkedTasks) {
+          if (lt.Name) result.quests.add(lt.Name);
+        }
+      }
+    } else if (task.$type === 'TaskEffectorSubscription') {
+      if (task.Effector?.$type) result.effects.push(task.Effector.$type);
+      if (task.Name) result.quests.add(task.Name);
+    }
+  }
+  return { ...result, quests: [...result.quests] };
+}
+
+
+// ── Global State ────────────────────────────────────────────────
+
+const state = {
+  data: null,
+  selectedId: null,
+  hoveredId: null,
+  filters: { types: [], triggers: [], effects: [], quests: [], search: '' },
+  filteredIds: null,
+  interactions: {},
+  hiddenIds: new Set(), // manually hidden via eye toggle
+  selectedIds: new Set(), // multi-selection for batch operations
+  viewMode: 'wireframe', // 'wireframe' or 'solid'
+};
+
+// ── Three.js Module Variables ────────────────────────────────────
+let scene, camera, renderer, controls;
+let itemMeshes = {}; // id -> THREE.Object3D
+let sceneRoot = null; // root group (per-item coordinate conversion, no global Z-flip)
+let raycaster, mouse;
+let selectionOutline = null; // highlight mesh for selected item
+let hoverOutline = null; // highlight mesh for hovered item
+
+
+// ── Stub Functions (filled in by later tasks) ───────────────────
+
+function buildTree(items) {
+  const roots = [];
+  const childrenMap = {}; // parentId -> [child items]
+
+  for (const item of Object.values(items)) {
+    const pid = item.parentItemID || item.p || 0;
+    if (pid === 0 || !items[pid]) {
+      roots.push(item);
+    } else {
+      (childrenMap[pid] = childrenMap[pid] || []).push(item);
+    }
+  }
+
+  const getName = (item) => item.extraData?.title || `${TYPE_NAMES[item.prefabName] || item.prefabName} #${item.id}`;
+  const sort = (arr) => arr.sort((a, b) => getName(a).localeCompare(getName(b)));
+  sort(roots);
+  for (const arr of Object.values(childrenMap)) sort(arr);
+
+  return { roots, childrenMap };
+}
+
+function renderTreeNode(item, childrenMap, depth) {
+  const hasChildren = !!(childrenMap[item.id] && childrenMap[item.id].length);
+  const inter = state.interactions[item.id] || { triggers: [], effects: [], quests: [] };
+  const name = item.extraData?.title || `${TYPE_NAMES[item.prefabName] || item.prefabName} #${item.id}`;
+  const color = TYPE_COLORS[item.prefabName] || '#666666';
+
+  // Create tree-node container
+  const node = document.createElement('div');
+  node.className = 'tree-node';
+  node.dataset.id = item.id;
+
+  // Create tree-row (the clickable row)
+  const row = document.createElement('div');
+  row.className = 'tree-row';
+  row.style.paddingLeft = (depth * 16 + 8) + 'px';
+
+  // Arrow
+  const arrow = document.createElement('span');
+  arrow.className = 'tree-arrow' + (hasChildren ? ' has-children' : '');
+  if (hasChildren) arrow.innerHTML = SVG_ICONS.chevron;
+
+  // Dot
+  const dot = document.createElement('span');
+  dot.className = 'tree-dot';
+  dot.style.backgroundColor = color;
+
+  // Label
+  const label = document.createElement('span');
+  label.className = 'tree-label';
+  label.textContent = name;
+
+  // Badges
+  const badges = document.createElement('span');
+  badges.className = 'tree-badges';
+
+  if (inter.triggers.includes('OnClickEvent')) {
+    badges.appendChild(makeBadge('C', 'Click trigger', '#a6e3a1'));
+  }
+  if (inter.triggers.some(t => t === 'OnEnterEvent' || t === 'OnExitEvent' || t === 'OnCollideEvent')) {
+    badges.appendChild(makeBadge('P', 'Proximity trigger', '#89dceb'));
+  }
+  if (inter.effects.some(e => e === 'PlaySoundOnce' || e === 'PlaySoundInALoop')) {
+    badges.appendChild(makeBadge('S', 'Plays sound', '#f9e2af'));
+  }
+  if (inter.effects.includes('MoveToSpot')) {
+    badges.appendChild(makeBadge('M', 'Moves to spot', '#cba6f7'));
+  }
+  if (inter.quests.length > 0) {
+    badges.appendChild(makeBadge('Q', 'Quests: ' + inter.quests.join(', '), '#fab387'));
+  }
+
+  // Eye toggle (visibility)
+  const eye = document.createElement('span');
+  eye.className = 'tree-eye visible';
+  eye.innerHTML = SVG_ICONS.eye;
+  eye.title = 'Toggle visibility';
+  eye.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // If this item is in a multi-selection, toggle all selected items
+    const idsToToggle = state.selectedIds.has(item.id) && state.selectedIds.size > 1
+      ? [...state.selectedIds]
+      : [item.id];
+
+    // Determine action: if any in the set are visible, hide all; else show all
+    const anyVisible = idsToToggle.some(id => !state.hiddenIds.has(id));
+
+    for (const id of idsToToggle) {
+      if (anyVisible) {
+        state.hiddenIds.add(id);
+      } else {
+        state.hiddenIds.delete(id);
+      }
+      // Update eye icon for each affected tree node
+      const eyeEl = document.querySelector(`.tree-node[data-id="${id}"] .tree-eye`);
+      if (eyeEl) {
+        eyeEl.className = state.hiddenIds.has(id) ? 'tree-eye hidden-item' : 'tree-eye visible';
+      }
+    }
+    updateSceneVisibility();
+  });
+
+  row.appendChild(arrow);
+  row.appendChild(dot);
+  row.appendChild(label);
+  row.appendChild(badges);
+  row.appendChild(eye);
+  node.appendChild(row);
+
+  // Children container
+  if (hasChildren) {
+    const childContainer = document.createElement('div');
+    childContainer.className = 'tree-children collapsed';
+    for (const child of childrenMap[item.id]) {
+      childContainer.appendChild(renderTreeNode(child, childrenMap, depth + 1));
+    }
+    node.appendChild(childContainer);
+  }
+
+  // Event handlers
+  if (hasChildren) {
+    arrow.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const childContainer = node.querySelector(':scope > .tree-children');
+      if (childContainer) {
+        childContainer.classList.toggle('collapsed');
+        arrow.classList.toggle('expanded', !childContainer.classList.contains('collapsed'));
+      }
+    });
+  }
+
+  row.addEventListener('click', (e) => selectItem(item.id, e));
+  row.addEventListener('dblclick', () => flyToItem(item.id));
+  row.addEventListener('mouseenter', () => hoverItem(item.id));
+  row.addEventListener('mouseleave', () => hoverItem(null));
+
+  return node;
+}
+
+function buildOutline() {
+  const panel = document.getElementById('outline-panel');
+  panel.innerHTML = '';
+  const { roots, childrenMap } = buildTree(state.data.items);
+  const fragment = document.createDocumentFragment();
+  for (const root of roots) {
+    fragment.appendChild(renderTreeNode(root, childrenMap, 0));
+  }
+  panel.appendChild(fragment);
+}
+
+function initScene() {
+  const container = document.getElementById('scene-panel');
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x1a1a2e);
+
+  camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 10000);
+  camera.position.set(20, 20, 20);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  container.appendChild(renderer.domElement);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.1;
+
+  // Grid floor at Y=0
+  const grid = new THREE.GridHelper(200, 200, 0x333355, 0x222244);
+  scene.add(grid);
+
+  // Axes helper
+  const axes = new THREE.AxesHelper(3);
+  scene.add(axes);
+
+  // Root group — no global flip. Per-item conversion handles coordinate system change.
+  sceneRoot = new THREE.Group();
+  scene.add(sceneRoot);
+
+  // Ambient + directional light
+  scene.add(new THREE.AmbientLight(0x606080, 1.5));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+  dirLight.position.set(10, 20, 10);
+  scene.add(dirLight);
+
+  // Raycaster
+  raycaster = new THREE.Raycaster();
+  mouse = new THREE.Vector2();
+
+  renderer.domElement.addEventListener('click', onSceneClick);
+  renderer.domElement.addEventListener('dblclick', onSceneDblClick);
+  renderer.domElement.addEventListener('mousemove', onSceneMouseMove);
+  renderer.domElement.style.cursor = 'grab';
+
+  // Resize observer
+  const ro = new ResizeObserver(() => {
+    if (!container.clientWidth || !container.clientHeight) return;
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+  });
+  ro.observe(container);
+
+  animate();
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+// ── Canvas Text Helper ──────────────────────────────────────────
+
+function createTextTexture(text, color, fontSize) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const font = `bold ${fontSize || 64}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
+  ctx.font = font;
+  const metrics = ctx.measureText(text);
+  const padding = 16;
+  canvas.width = Math.min(metrics.width + padding * 2, 2048);
+  canvas.height = (fontSize || 64) * 1.4 + padding * 2;
+
+  // Re-set font after resize
+  ctx.font = font;
+  ctx.fillStyle = color || '#c0c0c0';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2, canvas.width - padding * 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  return { texture, aspect: canvas.width / canvas.height };
+}
+
+// ── Wireframe/Solid Helpers ─────────────────────────────────────
+
+function makeWireframe(geo, color) {
+  const edges = new THREE.EdgesGeometry(geo);
+  return new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color }));
+}
+
+function makeSolid(geo, color, opts) {
+  return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, ...opts }));
+}
+
+// ── Item Mesh Factory ───────────────────────────────────────────
+
+function createItemMesh(item, viewMode) {
+  const scale = item.scale || { x: 1, y: 1, z: 1 };
+  const type = item.prefabName;
+  const solid = viewMode === 'solid';
+
+  // ── Cubes ──
+  if (type === 'ResizableCube' || type === '9Cube') {
+    const hexColor = item.extraData?.col ? '#' + item.extraData.col : (TYPE_COLORS[type] || '#888888');
+    const color = new THREE.Color(hexColor);
+    const geo = new THREE.BoxGeometry(scale.x, scale.y, scale.z);
+    if (solid) {
+      const opacity = item.extraData?.o != null ? item.extraData.o : 1;
+      return makeSolid(geo, color, { transparent: opacity < 1, opacity });
+    }
+    return makeWireframe(geo, color);
+
+  // ── Triggers ── translucent box
+  } else if (type === 'Trigger') {
+    const geo = new THREE.BoxGeometry(scale.x, scale.y, scale.z);
+    if (solid) {
+      return makeSolid(geo, 0x44ff44, { transparent: true, opacity: 0.15 });
+    }
+    const group = new THREE.Group();
+    group.add(makeWireframe(geo, 0x44ff44));
+    group.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x44ff44, transparent: true, opacity: 0.08, depthWrite: false })));
+    return group;
+
+  // ── Images ── flat plane
+  } else if (type === 'DefaultPainting') {
+    const geo = new THREE.PlaneGeometry(scale.x, scale.y);
+    const color = new THREE.Color(TYPE_COLORS[type] || '#88ccff');
+    if (solid) return makeSolid(geo, color, { side: THREE.DoubleSide });
+    return makeWireframe(geo, color);
+
+  // ── Video / Screen Share ── flat plane (wider)
+  } else if (type === 'DefaultVideo' || type === 'PlaceableTV') {
+    const color = new THREE.Color(TYPE_COLORS[type] || '#cc8888');
+    const geo = new THREE.PlaneGeometry(scale.x, scale.y);
+    if (solid) return makeSolid(geo, color, { side: THREE.DoubleSide });
+    return makeWireframe(geo, color);
+
+  // ── WorldText ── canvas texture on a plane
+  } else if (type === 'WorldText') {
+    const text = item.extraData?.text || 'Text';
+    const hexColor = item.extraData?.col ? '#' + item.extraData.col : '#c0c0c0';
+    const { texture, aspect } = createTextTexture(text, hexColor);
+    const height = scale.y || 0.5;
+    const width = height * aspect;
+    const geo = new THREE.PlaneGeometry(width, height);
+    const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+    return new THREE.Mesh(geo, mat);
+
+  // ── Point Light ── small sphere with glow ring
+  } else if (type === 'Light') {
+    const hexColor = item.extraData?.c ? '#' + item.extraData.c : '#ffff44';
+    const color = new THREE.Color(hexColor);
+    const group = new THREE.Group();
+    group.add(new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 12), new THREE.MeshBasicMaterial({ color })));
+    group.add(new THREE.Mesh(new THREE.RingGeometry(0.35, 0.45, 16), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false })));
+    return group;
+
+  // ── Spot Light ── cone pointing down
+  } else if (type === 'SpotLight') {
+    const hexColor = item.extraData?.c ? '#' + item.extraData.c : '#ffff44';
+    const color = new THREE.Color(hexColor);
+    const group = new THREE.Group();
+    // Bulb
+    group.add(new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshBasicMaterial({ color })));
+    // Cone beam pointing downward
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.2, 12, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false }));
+    cone.position.y = -0.7;
+    group.add(cone);
+    return group;
+
+  // ── Blink Light ── sphere with ring (like Light but pulsing indicator)
+  } else if (type === 'BlinkLight') {
+    const hexColor = item.extraData?.c ? '#' + item.extraData.c : '#ffff44';
+    const color = new THREE.Color(hexColor);
+    const group = new THREE.Group();
+    group.add(new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 12), new THREE.MeshBasicMaterial({ color })));
+    group.add(new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.04, 8, 16), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5 })));
+    return group;
+
+  // ── Spawn Point ── cylinder base with upward arrow
+  } else if (type === 'SpawnPoint') {
+    const color = new THREE.Color(TYPE_COLORS[type] || '#ff69b4');
+    const group = new THREE.Group();
+    // Base disc
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.08, 16), solid ? new THREE.MeshStandardMaterial({ color }) : new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6 }));
+    group.add(disc);
+    // Upward arrow shaft
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.8, 8), new THREE.MeshBasicMaterial({ color }));
+    shaft.position.y = 0.44;
+    group.add(shaft);
+    // Arrow head cone
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.3, 8), new THREE.MeshBasicMaterial({ color }));
+    head.position.y = 0.95;
+    group.add(head);
+    return group;
+
+  // ── Portal ── torus ring
+  } else if (type === 'Portal') {
+    const color = new THREE.Color(TYPE_COLORS[type] || '#8844ff');
+    const group = new THREE.Group();
+    const torus = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.1, 12, 24), solid ? new THREE.MeshStandardMaterial({ color }) : new THREE.MeshBasicMaterial({ color }));
+    group.add(torus);
+    // Inner disc (translucent)
+    const inner = new THREE.Mesh(new THREE.CircleGeometry(0.55, 24), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.15, side: THREE.DoubleSide, depthWrite: false }));
+    group.add(inner);
+    return group;
+
+  // ── Camera ── box body + cone lens
+  } else if (type === 'CameraObject') {
+    const color = new THREE.Color(TYPE_COLORS[type] || '#ffffff');
+    const group = new THREE.Group();
+    // Body
+    const body = solid ? makeSolid(new THREE.BoxGeometry(0.4, 0.3, 0.3), color) : makeWireframe(new THREE.BoxGeometry(0.4, 0.3, 0.3), color);
+    group.add(body);
+    // Lens cone
+    const lens = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.3, 8), solid ? new THREE.MeshStandardMaterial({ color: 0x666666 }) : new THREE.MeshBasicMaterial({ color: 0x666666 }));
+    lens.rotation.z = Math.PI / 2;
+    lens.position.x = 0.35;
+    group.add(lens);
+    return group;
+
+  // ── Jump Pad ── flat disc with chevron
+  } else if (type === 'JumpPad') {
+    const color = new THREE.Color(TYPE_COLORS[type] || '#ffcc00');
+    const group = new THREE.Group();
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16), solid ? new THREE.MeshStandardMaterial({ color }) : new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7 }));
+    group.add(disc);
+    // Upward chevron arrow
+    const chevron = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.3, 4), new THREE.MeshBasicMaterial({ color }));
+    chevron.position.y = 0.3;
+    group.add(chevron);
+    return group;
+
+  // ── Gun / Shotgun ── elongated box
+  } else if (type === 'Gun' || type === 'Shotgun') {
+    const color = new THREE.Color(TYPE_COLORS[type] || '#ff0000');
+    const group = new THREE.Group();
+    // Barrel
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.7, 8), solid ? new THREE.MeshStandardMaterial({ color }) : new THREE.MeshBasicMaterial({ color }));
+    barrel.rotation.z = Math.PI / 2;
+    group.add(barrel);
+    // Grip
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.25, 0.08), solid ? new THREE.MeshStandardMaterial({ color }) : new THREE.MeshBasicMaterial({ color }));
+    grip.position.y = -0.15;
+    grip.position.x = -0.1;
+    group.add(grip);
+    return group;
+
+  // ── Leaderboard ── tall flat panel
+  } else if (type === 'Leaderboard') {
+    const color = new THREE.Color(TYPE_COLORS[type] || '#44cccc');
+    const geo = new THREE.BoxGeometry(0.8, 1.0, 0.05);
+    if (solid) return makeSolid(geo, color);
+    return makeWireframe(geo, color);
+
+  // ── Billboard / Sign ── flat panel
+  } else if (type === 'GLBSign') {
+    const color = new THREE.Color(TYPE_COLORS[type] || '#cccc44');
+    const geo = new THREE.BoxGeometry(1.0, 0.6, 0.05);
+    if (solid) return makeSolid(geo, color);
+    return makeWireframe(geo, color);
+
+  // ── NPC ── capsule shape (cylinder + spheres)
+  } else if (type === 'GLBNPC') {
+    const color = new THREE.Color(TYPE_COLORS[type] || '#cc44ff');
+    const group = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.8, 12), solid ? new THREE.MeshStandardMaterial({ color }) : new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6 }));
+    group.add(body);
+    // Head
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 12), solid ? new THREE.MeshStandardMaterial({ color }) : new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6 }));
+    head.position.y = 0.6;
+    group.add(head);
+    return group;
+
+  // ── VFX (Addressable) ── diamond / octahedron
+  } else if (type === 'Addressable') {
+    const color = new THREE.Color(TYPE_COLORS[type] || '#ff44ff');
+    const geo = new THREE.OctahedronGeometry(0.3);
+    if (solid) return makeSolid(geo, color, { transparent: true, opacity: 0.7 });
+    return makeWireframe(geo, color);
+
+  // ── Collectable ── small octahedron
+  } else if (type === 'GlbCollectable') {
+    const color = new THREE.Color(TYPE_COLORS[type] || '#ff8844');
+    const geo = new THREE.OctahedronGeometry(0.25);
+    if (solid) return makeSolid(geo, color);
+    return makeWireframe(geo, color);
+
+  // ── Destructible ── cracked box (icosahedron)
+  } else if (type === 'Destructible') {
+    const color = new THREE.Color(TYPE_COLORS[type] || '#ff4444');
+    const geo = new THREE.IcosahedronGeometry(0.35, 0);
+    if (solid) return makeSolid(geo, color);
+    return makeWireframe(geo, color);
+
+  // ── Fallback ── generic sphere
+  } else {
+    const color = new THREE.Color(TYPE_COLORS[type] || '#aaaaaa');
+    const geo = new THREE.SphereGeometry(0.25, 8, 8);
+    return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color }));
+  }
+}
+
+// ── GLB Loading ─────────────────────────────────────────────────
+
+function loadGLB(url) {
+  if (glbCache.has(url)) return glbCache.get(url);
+
+  const promise = new Promise((resolve, reject) => {
+    glbLoadingCount++;
+    updateStatusBar();
+
+    gltfLoader.load(url,
+      (gltf) => {
+        glbLoadingCount--;
+        updateStatusBar();
+        resolve(gltf.scene);
+      },
+      undefined, // progress
+      (err) => {
+        glbLoadingCount--;
+        updateStatusBar();
+        console.warn('GLB load failed:', url, err);
+        reject(err);
+      }
+    );
+  });
+
+  glbCache.set(url, promise);
+  return promise;
+}
+
+function createGLBPlaceholder(item) {
+  const color = new THREE.Color(TYPE_COLORS[item.prefabName] || '#4488ff');
+  const scale = item.scale || { x: 1, y: 1, z: 1 };
+  const geo = new THREE.BoxGeometry(scale.x * 0.5, scale.y * 0.5, scale.z * 0.5);
+  const edges = new THREE.EdgesGeometry(geo);
+  const placeholder = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.3 }));
+  placeholder.userData._isPlaceholder = true;
+  return placeholder;
+}
+
+async function loadGLBForItem(group, item) {
+  const url = resolveContentUrl(item.contentString);
+  if (!url || !/\.(glb|gltf)(\?|$)/i.test(url)) return;
+
+  try {
+    const original = await loadGLB(url);
+    const model = original.clone();
+
+    // Single-child GLBs often have a baked export-scene offset on the root
+    // object that Unity/Portals discards when placing items. Reset it.
+    // Multi-child GLBs have intentional relative positions (e.g. spaceship parts).
+    if (model.children.length === 1) {
+      model.children[0].position.set(0, 0, 0);
+    }
+
+    // Unity negates Z when importing glTF, so models face the opposite direction.
+    // Rotate 180° around Y to compensate. This is on the model visual only —
+    // doesn't affect child items (they're wrapper siblings, not model children).
+    model.rotation.y = Math.PI;
+
+    // Apply item scale to the model visual only (not wrapper — Portals parent-child doesn't scale children)
+    const scale = item.scale || { x: 1, y: 1, z: 1 };
+    model.scale.set(scale.x, scale.y, scale.z);
+
+    // Remove placeholder
+    const placeholder = group.children.find(c => c.userData._isPlaceholder);
+    if (placeholder) group.remove(placeholder);
+
+    // Tag all children for raycasting
+    model.traverse((child) => { child.userData.itemId = item.id; });
+    group.add(model);
+  } catch (e) {
+    // Keep placeholder on failure
+  }
+}
+
+function populateScene() {
+  // Clear existing meshes from sceneRoot
+  while (sceneRoot.children.length) sceneRoot.remove(sceneRoot.children[0]);
+  itemMeshes = {};
+
+  const glbItems = []; // collect GLB items for async loading
+  const items = state.data.items;
+
+  // First pass: create a wrapper Group per item with local transform
+  // Each wrapper holds a "_visual" child (the geometry) so we can hide
+  // the visual without hiding children in the hierarchy
+  for (const [id, item] of Object.entries(items)) {
+    const pos = item.pos || { x: 0, y: 0, z: 0 };
+    const rot = item.rot || { x: 0, y: 0, z: 0, w: 1 };
+    const resolvedUrl = resolveContentUrl(item.contentString);
+    const isGLBType = GLB_TYPES.has(item.prefabName) && resolvedUrl && /\.(glb|gltf)(\?|$)/i.test(resolvedUrl);
+
+    // Per-item Unity→Three.js conversion: negate Z position, negate X/Y quaternion.
+    // Mathematically: convert(Q)*convert(v) = convert(Q*v), so hierarchies work correctly.
+    // No wrapper.scale — Portals parent-child is a simple position offset,
+    // NOT a scaled transform. Scale is visual only (applied to model/geometry).
+    const wrapper = new THREE.Group();
+    wrapper.position.set(pos.x, pos.y, -pos.z);
+    wrapper.quaternion.set(-rot.x, -rot.y, rot.z, rot.w);
+    wrapper.userData.itemId = id;
+
+    // Visual content — this is what gets shown/hidden by filters
+    let visual;
+    if (isGLBType) {
+      visual = new THREE.Group();
+      visual.add(createGLBPlaceholder(item));
+      glbItems.push({ group: visual, item });
+    } else {
+      visual = createItemMesh(item, state.viewMode);
+    }
+    visual.userData._isVisual = true;
+    visual.userData.itemId = id;
+    visual.traverse((child) => { child.userData.itemId = id; });
+    wrapper.add(visual);
+
+    itemMeshes[id] = wrapper;
+  }
+
+  // Second pass: build parent-child hierarchy
+  for (const [id, item] of Object.entries(items)) {
+    const parentId = String(item.parentItemID || item.p || 0);
+    const wrapper = itemMeshes[id];
+    const parentWrapper = itemMeshes[parentId];
+    if (parentId !== '0' && parentId !== id && parentWrapper && parentWrapper !== wrapper) {
+      parentWrapper.add(wrapper);
+    } else {
+      sceneRoot.add(wrapper);
+    }
+  }
+
+  // Apply visibility (on the _visual child, not the wrapper)
+  applySceneVisibility();
+
+  fitCameraToBounds();
+
+  // Start loading GLBs (batched with concurrency limit)
+  loadGLBsBatched(glbItems);
+}
+
+// Toggle visibility on the _visual child only, keeping wrapper visible for hierarchy
+function applySceneVisibility() {
+  for (const [id, wrapper] of Object.entries(itemMeshes)) {
+    const passFilter = !state.filteredIds || state.filteredIds.has(id);
+    const passEye = !state.hiddenIds.has(id);
+    const show = passFilter && passEye;
+    // Find the _visual child and toggle it
+    for (const child of wrapper.children) {
+      if (child.userData._isVisual) {
+        child.visible = show;
+      }
+    }
+  }
+}
+
+async function loadGLBsBatched(glbItems) {
+  const CONCURRENCY = 6;
+  let i = 0;
+  async function next() {
+    while (i < glbItems.length) {
+      const { group, item } = glbItems[i++];
+      await loadGLBForItem(group, item);
+    }
+  }
+  const workers = [];
+  for (let w = 0; w < Math.min(CONCURRENCY, glbItems.length); w++) {
+    workers.push(next());
+  }
+  await Promise.all(workers);
+}
+
+function toggleViewMode() {
+  state.viewMode = state.viewMode === 'wireframe' ? 'solid' : 'wireframe';
+  const btn = document.getElementById('view-mode-btn');
+  btn.textContent = state.viewMode === 'wireframe' ? 'Wireframe' : 'Solid';
+  btn.classList.toggle('active', state.viewMode === 'solid');
+  populateScene();
+}
+
+// ── Mini 3D Preview (Detail Panel) ──────────────────────────────
+
+let miniPreviewCleanup = null;
+
+function createMiniPreview(container, url) {
+  // Clean up previous mini preview
+  if (miniPreviewCleanup) {
+    miniPreviewCleanup();
+    miniPreviewCleanup = null;
+  }
+
+  const width = container.clientWidth || 280;
+  const height = container.clientHeight || 280;
+
+  const miniScene = new THREE.Scene();
+  miniScene.background = new THREE.Color(0x11111b);
+
+  const miniCamera = new THREE.PerspectiveCamera(45, width / height, 0.01, 100);
+  const miniRenderer = new THREE.WebGLRenderer({ antialias: true });
+  miniRenderer.setSize(width, height);
+  miniRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  container.appendChild(miniRenderer.domElement);
+
+  const miniControls = new OrbitControls(miniCamera, miniRenderer.domElement);
+  miniControls.enableDamping = true;
+  miniControls.dampingFactor = 0.1;
+  miniControls.autoRotate = true;
+  miniControls.autoRotateSpeed = 2;
+
+  // Lighting
+  miniScene.add(new THREE.AmbientLight(0xffffff, 0.8));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  dirLight.position.set(3, 5, 3);
+  miniScene.add(dirLight);
+  const backLight = new THREE.DirectionalLight(0x4488ff, 0.4);
+  backLight.position.set(-3, 2, -3);
+  miniScene.add(backLight);
+
+  let animId = null;
+
+  function animateMini() {
+    animId = requestAnimationFrame(animateMini);
+    miniControls.update();
+    miniRenderer.render(miniScene, miniCamera);
+  }
+  animateMini();
+
+  // Load the model
+  loadGLB(url).then((original) => {
+    const model = original.clone();
+    miniScene.add(model);
+
+    // Fit camera to model bounds
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const dist = maxDim * 1.8;
+
+    miniCamera.position.set(center.x + dist * 0.7, center.y + dist * 0.5, center.z + dist * 0.7);
+    miniControls.target.copy(center);
+    miniControls.update();
+  }).catch(() => {
+    // Show error text
+    const err = document.createElement('div');
+    err.style.cssText = 'position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #6c7086; font-size: 12px;';
+    err.textContent = 'Failed to load model';
+    container.appendChild(err);
+  });
+
+  miniPreviewCleanup = () => {
+    if (animId) cancelAnimationFrame(animId);
+    miniRenderer.dispose();
+    miniControls.dispose();
+    container.innerHTML = '';
+  };
+}
+
+// ── Filter Dropdown Component ────────────────────────────────────
+
+function createFilterDropdown(buttonId, options, category) {
+  const button = document.getElementById(buttonId);
+  const container = button.parentElement; // .filter-btn-container
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'filter-dropdown';
+
+  // "Clear" link at top
+  const clearBtn = document.createElement('div');
+  clearBtn.className = 'filter-clear';
+  clearBtn.textContent = 'Clear';
+  clearBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    state.filters[category] = [];
+    updateCheckboxes();
+    updateButtonLabel();
+    applyFilters();
+  });
+  dropdown.appendChild(clearBtn);
+
+  // Checkbox items
+  for (const opt of options) {
+    const item = document.createElement('label');
+    item.className = 'filter-item';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = opt.value;
+    cb.addEventListener('change', () => {
+      if (cb.checked) {
+        state.filters[category].push(opt.value);
+      } else {
+        state.filters[category] = state.filters[category].filter(v => v !== opt.value);
+      }
+      updateButtonLabel();
+      applyFilters();
+    });
+    item.appendChild(cb);
+    item.appendChild(document.createTextNode(' ' + opt.label));
+    dropdown.appendChild(item);
+  }
+
+  container.appendChild(dropdown);
+
+  function updateCheckboxes() {
+    dropdown.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.checked = state.filters[category].includes(cb.value);
+    });
+  }
+
+  function updateButtonLabel() {
+    const count = state.filters[category].length;
+    const baseLabel = buttonId.replace('filter-', '');
+    const capitalized = baseLabel.charAt(0).toUpperCase() + baseLabel.slice(1);
+    button.textContent = count > 0 ? `${capitalized} (${count})` : capitalized;
+    button.classList.toggle('active', count > 0);
+  }
+
+  // Toggle dropdown on button click
+  button.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // Close other dropdowns first
+    document.querySelectorAll('.filter-dropdown.open').forEach(d => {
+      if (d !== dropdown) d.classList.remove('open');
+    });
+    dropdown.classList.toggle('open');
+  });
+}
+
+// Close dropdowns when clicking elsewhere
+document.addEventListener('click', () => {
+  document.querySelectorAll('.filter-dropdown.open').forEach(d => d.classList.remove('open'));
+});
+
+function populateFilters() {
+  // Remove old dropdowns (for re-drop support)
+  document.querySelectorAll('.filter-dropdown').forEach(d => d.remove());
+  // Reset filter state
+  state.filters = { types: [], triggers: [], effects: [], quests: [], search: '' };
+  state.filteredIds = null;
+  document.getElementById('search').value = '';
+  // Reset button labels and strip old event listeners by cloning
+  ['filter-type', 'filter-trigger', 'filter-effect', 'filter-quest'].forEach(btnId => {
+    const oldBtn = document.getElementById(btnId);
+    const baseLabel = btnId.replace('filter-', '');
+    const newBtn = oldBtn.cloneNode(false);
+    newBtn.textContent = baseLabel.charAt(0).toUpperCase() + baseLabel.slice(1);
+    newBtn.classList.remove('active');
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+  });
+
+  // Collect unique values from all items
+  const types = new Set();
+  const triggers = new Set();
+  const effects = new Set();
+  const quests = new Set();
+
+  for (const [id, item] of Object.entries(state.data.items)) {
+    types.add(item.prefabName);
+    const info = state.interactions[id];
+    info.triggers.forEach(t => triggers.add(t));
+    info.effects.forEach(e => effects.add(e));
+    info.quests.forEach(q => quests.add(q));
+  }
+
+  // Sort and create options with friendly names
+  const typeOpts = [...types].sort().map(t => ({ value: t, label: TYPE_NAMES[t] || t }));
+  const triggerOpts = [...triggers].sort().map(t => ({ value: t, label: TRIGGER_NAMES[t] || t }));
+  const effectOpts = [...effects].sort().map(e => ({ value: e, label: EFFECT_NAMES[e] || e }));
+  const questOpts = [...quests].sort().map(q => ({ value: q, label: q }));
+
+  createFilterDropdown('filter-type', typeOpts, 'types');
+  createFilterDropdown('filter-trigger', triggerOpts, 'triggers');
+  createFilterDropdown('filter-effect', effectOpts, 'effects');
+  createFilterDropdown('filter-quest', questOpts, 'quests');
+
+  // Wire up search input (only once — skip if already wired)
+  const searchInput = document.getElementById('search');
+  if (!searchInput.dataset.wired) {
+    searchInput.addEventListener('input', () => {
+      state.filters.search = searchInput.value;
+      applyFilters();
+    });
+    searchInput.dataset.wired = '1';
+  }
+}
+
+function updateStatusBar() {
+  const bar = document.getElementById('status-bar');
+  if (!state.data) { bar.textContent = 'Ready'; return; }
+
+  const totalItems = Object.keys(state.data.items).length;
+  const totalQuests = Object.keys(state.data.quests).length;
+  const showing = state.filteredIds ? state.filteredIds.size : totalItems;
+
+  let text = `Items: ${totalItems}`;
+  if (totalQuests > 0) text += ` | Quests: ${totalQuests}`;
+  if (glbLoadingCount > 0) text += ` | Loading GLBs: ${glbLoadingCount}`;
+  if (state.filteredIds) text += ` | Showing: ${showing}`;
+  if (state.selectedId) {
+    const item = state.data.items[state.selectedId];
+    const name = item?.extraData?.title || `${TYPE_NAMES[item?.prefabName] || item?.prefabName} #${state.selectedId}`;
+    text += ` | Selected: ${name} (#${state.selectedId})`;
+  }
+  bar.textContent = text;
+}
+
+function selectItem(id, event) {
+  const multiKey = event && (event.metaKey || event.ctrlKey || event.shiftKey);
+
+  if (multiKey && id) {
+    // Toggle this item in multi-selection
+    if (state.selectedIds.has(id)) {
+      state.selectedIds.delete(id);
+      // If we removed the primary, pick another or null
+      if (state.selectedId === id) {
+        state.selectedId = state.selectedIds.size > 0 ? [...state.selectedIds][state.selectedIds.size - 1] : null;
+      }
+    } else {
+      state.selectedIds.add(id);
+      state.selectedId = id; // primary = last clicked
+    }
+  } else {
+    // Single select — clear multi-selection
+    state.selectedIds.clear();
+    state.selectedId = id;
+    if (id) state.selectedIds.add(id);
+  }
+
+  updateTreeSelection();
+  updateSceneSelection();
+  updateDetailPanel();
+  updateStatusBar();
+}
+
+function hoverItem(id) {
+  state.hoveredId = id;
+  updateTreeHover();
+  updateSceneHover();
+}
+function fitCameraToBounds() {
+  const box = new THREE.Box3();
+  for (const mesh of Object.values(itemMeshes)) {
+    box.expandByObject(mesh);
+  }
+  if (box.isEmpty()) return;
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const dist = maxDim * 1.2;
+  camera.position.set(center.x + dist, center.y + dist * 0.7, center.z + dist);
+  controls.target.copy(center);
+  controls.update();
+}
+
+let flyAnimation = null;
+
+function flyToItem(id) {
+  const mesh = itemMeshes[id];
+  if (!mesh) return;
+
+  const targetPos = new THREE.Vector3();
+  mesh.getWorldPosition(targetPos);
+
+  // Compute a good camera distance based on object size
+  const box = new THREE.Box3().setFromObject(mesh);
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z, 2);
+  const dist = maxDim * 3 + 4;
+
+  // Camera offset direction: from current camera direction or default
+  const camDir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+  const endCamPos = new THREE.Vector3(
+    targetPos.x + camDir.x * dist,
+    targetPos.y + Math.abs(camDir.y) * dist * 0.5 + dist * 0.3,
+    targetPos.z + camDir.z * dist
+  );
+
+  const startCamPos = camera.position.clone();
+  const startTarget = controls.target.clone();
+  const startTime = performance.now();
+  const duration = 600; // ms
+
+  // Cancel any existing animation
+  if (flyAnimation) cancelAnimationFrame(flyAnimation);
+
+  function animateFly() {
+    const elapsed = performance.now() - startTime;
+    const t = Math.min(elapsed / duration, 1);
+    // Ease out cubic
+    const ease = 1 - Math.pow(1 - t, 3);
+
+    camera.position.lerpVectors(startCamPos, endCamPos, ease);
+    controls.target.lerpVectors(startTarget, targetPos, ease);
+    controls.update();
+
+    if (t < 1) {
+      flyAnimation = requestAnimationFrame(animateFly);
+    } else {
+      flyAnimation = null;
+    }
+  }
+  animateFly();
+}
+
+// ── Raycasting ──────────────────────────────────────────────────
+
+function getIntersectedItemId(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const objects = Object.values(itemMeshes);
+  const intersects = raycaster.intersectObjects(objects, true);
+  for (const hit of intersects) {
+    const id = hit.object.userData.itemId;
+    if (id) return id;
+  }
+  return null;
+}
+
+function onSceneClick(event) {
+  const id = getIntersectedItemId(event);
+  if (id) selectItem(id);
+}
+
+function onSceneMouseMove(event) {
+  const id = getIntersectedItemId(event);
+  if (id !== state.hoveredId) hoverItem(id);
+}
+
+function onSceneDblClick(event) {
+  const id = getIntersectedItemId(event);
+  if (id) {
+    selectItem(id);
+    flyToItem(id);
+  }
+}
+
+function updateTreeSelection() {
+  document.querySelectorAll('.tree-row.selected').forEach(el => el.classList.remove('selected'));
+  for (const id of state.selectedIds) {
+    const node = document.querySelector(`.tree-node[data-id="${id}"] > .tree-row`);
+    if (node) node.classList.add('selected');
+  }
+  // Scroll the primary selection into view
+  if (state.selectedId) {
+    const node = document.querySelector(`.tree-node[data-id="${state.selectedId}"] > .tree-row`);
+    if (node) {
+      node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      expandParentsOf(state.selectedId);
+    }
+  }
+}
+
+function expandParentsOf(id) {
+  const item = state.data.items[id];
+  if (!item) return;
+  const pid = item.parentItemID || item.p || 0;
+  if (pid && state.data.items[pid]) {
+    const parentNode = document.querySelector(`.tree-node[data-id="${pid}"]`);
+    if (parentNode) {
+      const childContainer = parentNode.querySelector(':scope > .tree-children');
+      if (childContainer && childContainer.classList.contains('collapsed')) {
+        childContainer.classList.remove('collapsed');
+        const arrow = parentNode.querySelector(':scope > .tree-row .tree-arrow');
+        if (arrow) arrow.classList.add('expanded');
+      }
+    }
+    expandParentsOf(pid);
+  }
+}
+
+function updateTreeHover() {
+  document.querySelectorAll('.tree-row.hovered').forEach(el => el.classList.remove('hovered'));
+  if (state.hoveredId) {
+    const node = document.querySelector(`.tree-node[data-id="${state.hoveredId}"] > .tree-row`);
+    if (node) node.classList.add('hovered');
+  }
+}
+
+function updateTreeFilters() {
+  if (!state.filteredIds) {
+    // No filter — show everything, collapse back to default
+    document.querySelectorAll('.tree-node').forEach(node => {
+      node.style.display = '';
+      const row = node.querySelector(':scope > .tree-row');
+      if (row) row.classList.remove('dimmed');
+    });
+    let emptyMsg = document.getElementById('outline-empty-msg');
+    if (emptyMsg) emptyMsg.remove();
+    return;
+  }
+
+  // Build set of IDs that should be visible in the tree:
+  // matched items + all their ancestors
+  const treeVisible = new Set(state.filteredIds);
+  for (const id of state.filteredIds) {
+    let current = state.data.items[id];
+    while (current) {
+      const pid = String(current.parentItemID || current.p || 0);
+      if (pid === '0' || !state.data.items[pid] || treeVisible.has(pid)) break;
+      treeVisible.add(pid);
+      current = state.data.items[pid];
+    }
+  }
+
+  document.querySelectorAll('.tree-node').forEach(node => {
+    const id = node.dataset.id;
+    if (!treeVisible.has(id)) {
+      // Hide entirely
+      node.style.display = 'none';
+    } else {
+      node.style.display = '';
+      const row = node.querySelector(':scope > .tree-row');
+      if (row) {
+        // Dim ancestors that aren't direct matches, keep matches bright
+        row.classList.toggle('dimmed', !state.filteredIds.has(id));
+      }
+      // Auto-expand ancestors so matched children are visible
+      if (!state.filteredIds.has(id)) {
+        const childContainer = node.querySelector(':scope > .tree-children');
+        if (childContainer && childContainer.classList.contains('collapsed')) {
+          childContainer.classList.remove('collapsed');
+          const arrow = node.querySelector(':scope > .tree-row .tree-arrow');
+          if (arrow) arrow.classList.add('expanded');
+        }
+      }
+    }
+  });
+
+  // Empty state message
+  let emptyMsg = document.getElementById('outline-empty-msg');
+  if (state.filteredIds.size === 0) {
+    if (!emptyMsg) {
+      emptyMsg = document.createElement('div');
+      emptyMsg.id = 'outline-empty-msg';
+      emptyMsg.style.cssText = 'padding: 24px 12px; text-align: center; color: #6c7086; font-size: 13px;';
+      emptyMsg.textContent = 'No items match filters';
+      document.getElementById('outline-panel').appendChild(emptyMsg);
+    }
+  } else if (emptyMsg) {
+    emptyMsg.remove();
+  }
+}
+function updateSceneSelection() {
+  // Remove old selection highlight
+  if (selectionOutline) {
+    scene.remove(selectionOutline);
+    selectionOutline = null;
+  }
+  if (!state.selectedId || !itemMeshes[state.selectedId]) return;
+
+  const mesh = itemMeshes[state.selectedId];
+  // Create a slightly larger wireframe box around the selected item
+  const box = new THREE.Box3().setFromObject(mesh);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const padding = 0.15;
+  const geo = new THREE.BoxGeometry(size.x + padding, size.y + padding, size.z + padding);
+  const edges = new THREE.EdgesGeometry(geo);
+  selectionOutline = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x89b4fa, linewidth: 2 }));
+  selectionOutline.position.copy(center);
+  selectionOutline.userData.isHelper = true;
+  scene.add(selectionOutline);
+}
+
+function updateSceneHover() {
+  if (hoverOutline) {
+    scene.remove(hoverOutline);
+    hoverOutline = null;
+  }
+  if (!state.hoveredId || !itemMeshes[state.hoveredId] || state.hoveredId === state.selectedId) return;
+
+  const mesh = itemMeshes[state.hoveredId];
+  const box = new THREE.Box3().setFromObject(mesh);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const padding = 0.1;
+  const geo = new THREE.BoxGeometry(size.x + padding, size.y + padding, size.z + padding);
+  const edges = new THREE.EdgesGeometry(geo);
+  hoverOutline = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x6c7086 }));
+  hoverOutline.position.copy(center);
+  hoverOutline.userData.isHelper = true;
+  scene.add(hoverOutline);
+}
+
+function updateSceneFilters() {
+  applySceneVisibility();
+}
+
+function updateSceneVisibility() {
+  applySceneVisibility();
+}
+// ── Detail Panel Helpers ─────────────────────────────────────────
+
+function quatToEulerDeg(q) {
+  const { x, y, z, w } = q;
+  const sinr = 2 * (w * x + y * z);
+  const cosr = 1 - 2 * (x * x + y * y);
+  const roll = Math.atan2(sinr, cosr) * 180 / Math.PI;
+
+  const sinp = 2 * (w * y - z * x);
+  const pitch = Math.abs(sinp) >= 1 ? Math.sign(sinp) * 90 : Math.asin(sinp) * 180 / Math.PI;
+
+  const siny = 2 * (w * z + x * y);
+  const cosy = 1 - 2 * (y * y + z * z);
+  const yaw = Math.atan2(siny, cosy) * 180 / Math.PI;
+
+  return { x: roll, y: pitch, z: yaw };
+}
+
+function syntaxHighlight(json) {
+  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
+    let cls = 'json-number';
+    if (/^"/.test(match)) {
+      cls = /:$/.test(match) ? 'json-key' : 'json-string';
+    } else if (/true|false/.test(match)) {
+      cls = 'json-boolean';
+    } else if (/null/.test(match)) {
+      cls = 'json-null';
+    }
+    return `<span class="${cls}">${match}</span>`;
+  });
+}
+
+function getObjectDetails(obj, skipKeys) {
+  // Generic: extract all non-$type, non-skip fields as key-value pairs
+  if (!obj || typeof obj !== 'object') return [];
+  const skip = new Set(skipKeys || ['$type', 'Id', 'TargetState', 'Name', 'TaskTriggerId']);
+  const details = [];
+  for (const [key, val] of Object.entries(obj)) {
+    if (skip.has(key)) continue;
+    if (val == null || val === '' || val === false) continue;
+    const label = FIELD_NAMES[key] || EFFECT_NAMES[key] || TRIGGER_NAMES[key] || key;
+    if (typeof val === 'object' && !Array.isArray(val)) {
+      // Flatten one level for nested objects like _transformState, v (velocity)
+      const nested = getObjectDetails(val, ['$type']);
+      for (const [nk, nv] of nested) {
+        details.push([label + '.' + nk, nv]);
+      }
+    } else if (Array.isArray(val)) {
+      details.push([label, `[${val.length} items]`]);
+    } else if (typeof val === 'boolean') {
+      details.push([label, 'Yes']);
+    } else if (typeof val === 'string' && val.startsWith('http')) {
+      details.push([label, val.split('/').pop() || val]);
+    } else {
+      details.push([label, String(val)]);
+    }
+  }
+  return details;
+}
+
+function getEffectDetails(effector) {
+  if (!effector) return [];
+  return getObjectDetails(effector, ['$type', 'Id', 'TargetState', 'Name', 'TaskTriggerId', 'linkedTasks']);
+}
+
+function getTriggerDetails(trigger) {
+  if (!trigger) return [];
+  return getObjectDetails(trigger, ['$type']);
+}
+
+function makeCollapsibleSection(title, collapsed, contentBuilder) {
+  const section = document.createElement('div');
+  section.className = 'detail-section';
+
+  const header = document.createElement('div');
+  header.className = 'detail-section-header';
+
+  const arrow = document.createElement('span');
+  arrow.className = 'section-arrow' + (collapsed ? '' : ' expanded');
+  arrow.innerHTML = SVG_ICONS.chevron;
+
+  const label = document.createElement('span');
+  label.textContent = title;
+
+  header.appendChild(arrow);
+  header.appendChild(label);
+
+  const body = document.createElement('div');
+  body.className = 'detail-section-body' + (collapsed ? ' collapsed' : '');
+  contentBuilder(body);
+
+  header.addEventListener('click', () => {
+    body.classList.toggle('collapsed');
+    arrow.classList.toggle('expanded', !body.classList.contains('collapsed'));
+  });
+
+  section.appendChild(header);
+  section.appendChild(body);
+  return section;
+}
+
+function makeDetailRow(label, valueContent) {
+  const row = document.createElement('div');
+  row.className = 'detail-row';
+  const lbl = document.createElement('span');
+  lbl.className = 'detail-label';
+  lbl.textContent = label;
+  const val = document.createElement('span');
+  val.className = 'detail-value';
+  if (typeof valueContent === 'string') {
+    val.textContent = valueContent;
+  } else {
+    val.appendChild(valueContent);
+  }
+  row.appendChild(lbl);
+  row.appendChild(val);
+  return row;
+}
+
+function formatNum(n) {
+  return typeof n === 'number' ? n.toFixed(2) : String(n);
+}
+
+function isColorField(key) {
+  return key === 'col' || (key === 'c');
+}
+
+function isUrlString(val) {
+  return typeof val === 'string' && val.startsWith('http');
+}
+
+function renderEffectorLine(effector, container) {
+  if (!effector) return;
+  const effectName = EFFECT_NAMES[effector.$type] || effector.$type || 'Unknown Effect';
+  const effectDiv = document.createElement('div');
+  effectDiv.className = 'interaction-effect';
+  effectDiv.textContent = '\u2192 ' + effectName;
+  container.appendChild(effectDiv);
+
+  const details = getEffectDetails(effector);
+  for (const [dLabel, dValue] of details) {
+    const detailDiv = document.createElement('div');
+    detailDiv.className = 'interaction-detail';
+    detailDiv.textContent = dLabel + ': ' + dValue;
+    container.appendChild(detailDiv);
+  }
+}
+
+
+// ── Detail Panel Update ─────────────────────────────────────────
+
+function updateDetailPanel() {
+  const panel = document.getElementById('detail-panel');
+  panel.innerHTML = '';
+
+  if (!state.selectedId || !state.data || !state.data.items[state.selectedId]) {
+    const empty = document.createElement('div');
+    empty.className = 'detail-empty';
+    empty.textContent = 'Select an item to inspect';
+    panel.appendChild(empty);
+    return;
+  }
+
+  const item = state.data.items[state.selectedId];
+  const extra = item.extraData || {};
+  const typeFriendly = TYPE_NAMES[item.prefabName] || item.prefabName;
+  const displayName = extra.title || `${typeFriendly} #${item.id}`;
+
+  // ── Header ──
+  const header = document.createElement('div');
+  header.className = 'detail-header';
+
+  const titleEl = document.createElement('div');
+  titleEl.className = 'detail-title';
+  titleEl.textContent = displayName;
+
+  const subtitleEl = document.createElement('div');
+  subtitleEl.className = 'detail-subtitle';
+  subtitleEl.textContent = `${typeFriendly} (${item.prefabName}) \u00B7 #${item.id}`;
+
+  header.appendChild(titleEl);
+  header.appendChild(subtitleEl);
+  panel.appendChild(header);
+
+  // ── Content Preview (images, GLB URLs) ──
+  const contentUrl = resolveContentUrl(item.contentString) || '';
+  const isImage = /\.(jpg|jpeg|png|gif|webp|svg)(\?|$)/i.test(contentUrl);
+  if (isImage && contentUrl) {
+    const preview = document.createElement('div');
+    preview.className = 'detail-preview';
+    const labelEl = document.createElement('div');
+    labelEl.className = 'detail-preview-label';
+    labelEl.textContent = 'Image Preview';
+    const img = document.createElement('img');
+    img.src = contentUrl;
+    img.alt = displayName;
+    img.addEventListener('click', () => window.open(contentUrl, '_blank'));
+    preview.appendChild(labelEl);
+    preview.appendChild(img);
+    // Show dimensions from scale (for DefaultPainting, scale = image size in meters)
+    const scale = item.scale || { x: 1, y: 1, z: 1 };
+    const sizeEl = document.createElement('div');
+    sizeEl.className = 'detail-preview-label';
+    sizeEl.style.marginTop = '4px';
+    sizeEl.textContent = `Size: ${formatNum(scale.x)}m × ${formatNum(scale.y)}m`;
+    preview.appendChild(sizeEl);
+    panel.appendChild(preview);
+  } else if (contentUrl && /\.(glb|gltf)(\?|$)/i.test(contentUrl)) {
+    const preview = document.createElement('div');
+    preview.className = 'detail-preview';
+    const labelEl = document.createElement('div');
+    labelEl.className = 'detail-preview-label';
+    labelEl.textContent = '3D Model Preview';
+    preview.appendChild(labelEl);
+
+    // Mini 3D viewport for GLB preview
+    const previewCanvas = document.createElement('div');
+    previewCanvas.style.cssText = 'width: 100%; aspect-ratio: 1; background: #11111b; border-radius: 4px; overflow: hidden; position: relative;';
+    preview.appendChild(previewCanvas);
+
+    // Link to original URL
+    const link = document.createElement('a');
+    link.href = contentUrl;
+    link.target = '_blank';
+    link.textContent = contentUrl.split('/').pop();
+    link.style.cssText = 'color: #89b4fa; font-size: 11px; word-break: break-all; display: block; margin-top: 4px;';
+    preview.appendChild(link);
+    panel.appendChild(preview);
+
+    // Render mini 3D preview after DOM attach
+    requestAnimationFrame(() => createMiniPreview(previewCanvas, contentUrl));
+  }
+
+  // ── Transform Section ──
+  panel.appendChild(makeCollapsibleSection('Transform', false, (body) => {
+    const pos = item.pos || { x: 0, y: 0, z: 0 };
+    body.appendChild(makeDetailRow('Position X', formatNum(pos.x)));
+    body.appendChild(makeDetailRow('Position Y', formatNum(pos.y)));
+    body.appendChild(makeDetailRow('Position Z', formatNum(pos.z)));
+
+    const rot = item.rot || { x: 0, y: 0, z: 0, w: 1 };
+    const euler = quatToEulerDeg(rot);
+    body.appendChild(makeDetailRow('Rotation X', formatNum(euler.x) + '\u00B0'));
+    body.appendChild(makeDetailRow('Rotation Y', formatNum(euler.y) + '\u00B0'));
+    body.appendChild(makeDetailRow('Rotation Z', formatNum(euler.z) + '\u00B0'));
+
+    const scale = item.scale || { x: 1, y: 1, z: 1 };
+    body.appendChild(makeDetailRow('Scale X', formatNum(scale.x)));
+    body.appendChild(makeDetailRow('Scale Y', formatNum(scale.y)));
+    body.appendChild(makeDetailRow('Scale Z', formatNum(scale.z)));
+  }));
+
+  // ── Properties Section ──
+  const skipKeys = new Set(['Tasks', 'ViewNodes', '$type', 'title']);
+
+  panel.appendChild(makeCollapsibleSection('Properties', false, (body) => {
+    // Show parent link if applicable
+    const parentId = item.parentItemID || item.p || 0;
+    if (parentId && state.data.items[parentId]) {
+      const parentItem = state.data.items[parentId];
+      const parentName = parentItem.extraData?.title || `${TYPE_NAMES[parentItem.prefabName] || parentItem.prefabName} #${parentId}`;
+      const parentVal = document.createElement('span');
+      const link = document.createElement('span');
+      link.className = 'detail-parent-link';
+      link.textContent = `${parentName} (#${parentId})`;
+      link.addEventListener('click', () => selectItem(parentId));
+      parentVal.appendChild(link);
+      body.appendChild(makeDetailRow('Parent', parentVal));
+    }
+
+    const keys = Object.keys(extra).filter(k => !skipKeys.has(k));
+    if (keys.length === 0 && !parentId) {
+      const none = document.createElement('div');
+      none.className = 'interaction-none';
+      none.textContent = 'No properties';
+      body.appendChild(none);
+      return;
+    }
+
+    for (const key of keys) {
+      const val = extra[key];
+      const friendlyLabel = FIELD_NAMES[key] || key;
+
+      // Color fields
+      if (isColorField(key) && typeof val === 'string') {
+        const colorVal = document.createElement('span');
+        const swatch = document.createElement('span');
+        swatch.className = 'color-swatch';
+        swatch.style.backgroundColor = '#' + val;
+        const hex = document.createElement('span');
+        hex.textContent = '#' + val;
+        colorVal.appendChild(swatch);
+        colorVal.appendChild(hex);
+        body.appendChild(makeDetailRow(friendlyLabel, colorVal));
+      }
+      // Boolean fields
+      else if (typeof val === 'boolean') {
+        body.appendChild(makeDetailRow(friendlyLabel, val ? 'Yes' : 'No'));
+      }
+      // URL fields
+      else if (isUrlString(val)) {
+        const urlVal = document.createElement('span');
+        urlVal.textContent = val.split('/').pop() || val;
+        urlVal.title = val;
+        body.appendChild(makeDetailRow(friendlyLabel, urlVal));
+      }
+      // Array fields
+      else if (Array.isArray(val)) {
+        body.appendChild(makeDetailRow(friendlyLabel, `[Array: ${val.length} items]`));
+      }
+      // Object fields
+      else if (val !== null && typeof val === 'object') {
+        body.appendChild(makeDetailRow(friendlyLabel, '[Object]'));
+      }
+      // Everything else
+      else {
+        body.appendChild(makeDetailRow(friendlyLabel, String(val)));
+      }
+    }
+  }));
+
+  // ── Interactions Section ──
+  const tasks = extra.Tasks || [];
+
+  panel.appendChild(makeCollapsibleSection('Interactions', false, (body) => {
+    if (tasks.length === 0) {
+      const none = document.createElement('div');
+      none.className = 'interaction-none';
+      none.textContent = 'No interactions';
+      body.appendChild(none);
+      return;
+    }
+
+    for (const task of tasks) {
+      const taskDiv = document.createElement('div');
+
+      if (task.$type === 'TaskTriggerSubscription') {
+        const triggerType = task.Trigger?.$type;
+        const triggerName = TRIGGER_NAMES[triggerType] || triggerType || 'Unknown Trigger';
+
+        // Quest advancement trigger
+        if (task.TaskTriggerId != null && task.Name) {
+          taskDiv.className = 'interaction-task has-quest';
+          const stateLabel = QUEST_STATES[task.TargetState] || `State ${task.TargetState}`;
+
+          const whenLabel = document.createElement('div');
+          whenLabel.className = 'interaction-when';
+          whenLabel.textContent = 'When';
+          taskDiv.appendChild(whenLabel);
+
+          const trigLine = document.createElement('div');
+          trigLine.className = 'interaction-trigger';
+          trigLine.textContent = triggerName;
+          taskDiv.appendChild(trigLine);
+
+          // Trigger config details
+          for (const [dLabel, dValue] of getTriggerDetails(task.Trigger)) {
+            const d = document.createElement('div');
+            d.className = 'interaction-detail';
+            d.textContent = dLabel + ': ' + dValue;
+            taskDiv.appendChild(d);
+          }
+
+          const thenLabel = document.createElement('div');
+          thenLabel.className = 'interaction-then';
+          thenLabel.textContent = 'Then';
+          taskDiv.appendChild(thenLabel);
+
+          const questRow = document.createElement('div');
+          questRow.style.cssText = 'padding-left: 12px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;';
+          questRow.innerHTML = '<span class="interaction-quest-badge">' + escapeHtml(task.Name) + '</span>' +
+            '<span class="interaction-state-badge">' + escapeHtml(stateLabel) + '</span>';
+          taskDiv.appendChild(questRow);
+
+        } else {
+          // Regular trigger with direct effects
+          taskDiv.className = 'interaction-task direct';
+
+          const whenLabel = document.createElement('div');
+          whenLabel.className = 'interaction-when';
+          whenLabel.textContent = 'When';
+          taskDiv.appendChild(whenLabel);
+
+          const trigLine = document.createElement('div');
+          trigLine.className = 'interaction-trigger';
+          trigLine.textContent = triggerName;
+          taskDiv.appendChild(trigLine);
+
+          // Trigger config details
+          for (const [dLabel, dValue] of getTriggerDetails(task.Trigger)) {
+            const d = document.createElement('div');
+            d.className = 'interaction-detail';
+            d.textContent = dLabel + ': ' + dValue;
+            taskDiv.appendChild(d);
+          }
+
+          const thenLabel = document.createElement('div');
+          thenLabel.className = 'interaction-then';
+          thenLabel.textContent = 'Then';
+          taskDiv.appendChild(thenLabel);
+
+          const effector = task.DirectEffector?.Effector;
+          renderEffectorLine(effector, taskDiv);
+
+          // RunTriggersFromEffector linked tasks
+          if (effector?.$type === 'RunTriggersFromEffector' && effector.linkedTasks) {
+            for (const lt of effector.linkedTasks) {
+              if (lt.Effector) {
+                renderEffectorLine(lt.Effector, taskDiv);
+              }
+              if (lt.Name) {
+                const questRow = document.createElement('div');
+                questRow.style.cssText = 'padding-left: 12px; margin-top: 4px;';
+                const stLabel = QUEST_STATES[lt.TargetState] || '';
+                questRow.innerHTML = '<span class="interaction-quest-badge">' + escapeHtml(lt.Name) + '</span>' +
+                  (stLabel ? '<span class="interaction-state-badge">' + escapeHtml(stLabel) + '</span>' : '');
+                taskDiv.appendChild(questRow);
+              }
+            }
+          }
+        }
+
+      } else if (task.$type === 'TaskEffectorSubscription') {
+        taskDiv.className = 'interaction-task has-quest';
+        const questName = task.Name || 'Unknown';
+        const stateLabel = QUEST_STATES[task.TargetState] || `State ${task.TargetState || '?'}`;
+
+        const whenLabel = document.createElement('div');
+        whenLabel.className = 'interaction-when';
+        whenLabel.textContent = 'When quest state changes';
+        taskDiv.appendChild(whenLabel);
+
+        const questRow = document.createElement('div');
+        questRow.style.cssText = 'display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px;';
+        questRow.innerHTML = '<span class="interaction-quest-badge">' + escapeHtml(questName) + '</span>' +
+          '<span class="interaction-state-badge">' + escapeHtml(stateLabel) + '</span>';
+        taskDiv.appendChild(questRow);
+
+        const thenLabel = document.createElement('div');
+        thenLabel.className = 'interaction-then';
+        thenLabel.textContent = 'Then';
+        taskDiv.appendChild(thenLabel);
+
+        renderEffectorLine(task.Effector, taskDiv);
+      }
+
+      body.appendChild(taskDiv);
+    }
+  }));
+
+  // ── Raw JSON Section (collapsed by default) ──
+  panel.appendChild(makeCollapsibleSection('Raw JSON', true, (body) => {
+    const pre = document.createElement('pre');
+    pre.className = 'raw-json';
+    const jsonStr = JSON.stringify(extra, null, 2);
+    pre.innerHTML = syntaxHighlight(jsonStr);
+    body.appendChild(pre);
+  }));
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function applyFilters() {
+  const f = state.filters;
+  const hasAnyFilter = f.types.length || f.triggers.length || f.effects.length || f.quests.length || f.search;
+
+  if (!hasAnyFilter) {
+    state.filteredIds = null; // null = all pass
+  } else {
+    const ids = new Set();
+    const searchLower = f.search.toLowerCase();
+
+    for (const [id, item] of Object.entries(state.data.items)) {
+      const info = state.interactions[id];
+      const name = (item.extraData?.title || '').toLowerCase();
+
+      const passType = !f.types.length || f.types.includes(item.prefabName);
+      const passTrigger = !f.triggers.length || f.triggers.some(t => info.triggers.includes(t));
+      const passEffect = !f.effects.length || f.effects.some(e => info.effects.includes(e));
+      const passQuest = !f.quests.length || f.quests.some(q => info.quests.includes(q));
+      const passSearch = !f.search ||
+        name.includes(searchLower) ||
+        id.includes(f.search) ||
+        (item.prefabName || '').toLowerCase().includes(searchLower) ||
+        (TYPE_NAMES[item.prefabName] || '').toLowerCase().includes(searchLower);
+
+      if (passType && passTrigger && passEffect && passQuest && passSearch) {
+        ids.add(id);
+      }
+    }
+    state.filteredIds = ids;
+  }
+
+  updateTreeFilters();
+  updateSceneFilters();
+  updateStatusBar();
+}
+
+
+// ── Boot ────────────────────────────────────────────────────────
+
+function boot(data) {
+  state.data = data;
+  state.selectedId = null;
+  state.selectedIds = new Set();
+  state.hoveredId = null;
+  state.interactions = {};
+  state.hiddenIds = new Set();
+  // Cache interaction analysis for each item
+  for (const [id, item] of Object.entries(data.items)) {
+    state.interactions[id] = analyzeInteractions(item);
+  }
+  // Warn if running from file:// (GLB loading will fail due to CORS)
+  if (window.location.protocol === 'file:') {
+    const warn = document.createElement('div');
+    warn.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999;background:#f38ba8;color:#1e1e2e;padding:6px 16px;font-size:13px;text-align:center;font-weight:500;';
+    warn.innerHTML = '3D models won\u2019t load from file://. Run: <code style="background:rgba(0,0,0,0.15);padding:2px 6px;border-radius:3px">python3 -m http.server 8080</code> in this folder, then open <a href="http://localhost:8080" style="color:#1e1e2e;text-decoration:underline">localhost:8080</a>';
+    document.body.prepend(warn);
+  }
+
+  // Only init scene once; on re-drop just repopulate
+  buildOutline();
+  if (!renderer) {
+    initScene();
+  }
+  populateScene();
+  populateFilters();
+  updateDetailPanel();
+  updateStatusBar();
+}
+
+
+// ── Drag & Drop ─────────────────────────────────────────────────
+
+const dropOverlay = document.getElementById('drop-overlay');
+let dragCounter = 0;
+
+document.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+});
+
+document.addEventListener('dragenter', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dragCounter++;
+  dropOverlay.classList.remove('hidden');
+});
+
+document.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dragCounter--;
+  if (dragCounter <= 0) {
+    dragCounter = 0;
+    // Only hide if data is already loaded (overlay stays visible initially)
+    if (state.data) {
+      dropOverlay.classList.add('hidden');
+    }
+  }
+});
+
+document.addEventListener('drop', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dragCounter = 0;
+
+  const file = e.dataTransfer?.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = loadSnapshot(reader.result);
+      dropOverlay.classList.add('hidden');
+      boot(data);
+    } catch (err) {
+      console.error('Failed to load snapshot:', err);
+      alert('Failed to parse JSON file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+// Mark module as ready and process any data dropped before module loaded
+window.__inspectorReady = true;
+if (window.__inspectorPendingData) {
+  try {
+    const data = loadSnapshot(window.__inspectorPendingData);
+    dropOverlay.classList.add('hidden');
+    boot(data);
+  } catch (err) {
+    console.error('Failed to load pending snapshot:', err);
+    alert('Failed to parse JSON file: ' + err.message);
+  }
+  window.__inspectorPendingData = null;
+}
+
+
+// ── Divider Drag Resize ─────────────────────────────────────────
+
+function initDivider(dividerId, cssVar, direction) {
+  const divider = document.getElementById(dividerId);
+  const main = document.getElementById('main');
+  let startX, startWidth;
+
+  function onMouseDown(e) {
+    e.preventDefault();
+    startX = e.clientX;
+    startWidth = parseInt(getComputedStyle(main).getPropertyValue(cssVar));
+    divider.classList.add('active');
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  function onMouseMove(e) {
+    const delta = e.clientX - startX;
+    const newWidth = Math.max(150, startWidth + delta * direction);
+    main.style.setProperty(cssVar, newWidth + 'px');
+  }
+
+  function onMouseUp() {
+    divider.classList.remove('active');
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  }
+
+  divider.addEventListener('mousedown', onMouseDown);
+}
+
+// Left divider: dragging right increases left panel width
+initDivider('divider-left', '--left-width', 1);
+// Right divider: dragging right decreases right panel width
+initDivider('divider-right', '--right-width', -1);
+
+
+// ── View Mode Toggle ──────────────────────────────────────────
+
+document.getElementById('view-mode-btn').addEventListener('click', toggleViewMode);
+
+// ── Keyboard Shortcuts ──────────────────────────────────────────
+
+document.addEventListener('keydown', (e) => {
+  // Don't trigger shortcuts when typing in search
+  if (e.target.tagName === 'INPUT') return;
+
+  if (e.key === 'Escape') {
+    // Deselect all
+    state.selectedId = null;
+    state.selectedIds.clear();
+    updateTreeSelection();
+    updateSceneSelection();
+    updateDetailPanel();
+    updateStatusBar();
+  } else if (e.key === 'f' || e.key === 'F') {
+    // Fit camera to all items
+    if (typeof fitCameraToBounds === 'function') fitCameraToBounds();
+  } else if (e.key === 'h' || e.key === 'H') {
+    // Hide selected item(s)
+    const ids = state.selectedIds.size > 0 ? [...state.selectedIds] : (state.selectedId ? [state.selectedId] : []);
+    if (ids.length === 0) return;
+    const anyVisible = ids.some(id => !state.hiddenIds.has(id));
+    for (const id of ids) {
+      if (anyVisible) state.hiddenIds.add(id); else state.hiddenIds.delete(id);
+      const eyeEl = document.querySelector(`.tree-node[data-id="${id}"] .tree-eye`);
+      if (eyeEl) eyeEl.className = state.hiddenIds.has(id) ? 'tree-eye hidden-item' : 'tree-eye visible';
+    }
+    updateSceneVisibility();
+  } else if (e.key === '/') {
+    // Focus search input
+    e.preventDefault();
+    document.getElementById('search').focus();
+  }
+});
+
+</script>
+</body>
+</html>
