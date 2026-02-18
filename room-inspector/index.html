@@ -22,8 +22,8 @@ html, body {
   width: 100%; height: 100%;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: #131718;
+  color: #EDF9FF;
 }
 
 #app {
@@ -48,11 +48,11 @@ html, body {
 }
 
 #drop-overlay .drop-box {
-  border: 2px dashed #585b70;
+  border: 2px dashed #3d5060;
   border-radius: 12px;
   padding: 48px 64px;
   text-align: center;
-  color: #a6adc8;
+  color: #B5E3FD;
   font-size: 18px;
   pointer-events: none;
 }
@@ -60,7 +60,7 @@ html, body {
 #drop-overlay .drop-box .drop-hint {
   margin-top: 8px;
   font-size: 13px;
-  color: #6c7086;
+  color: #5a7a8e;
 }
 
 /* ── Filter Bar ──────────────────────────────────────────────── */
@@ -70,17 +70,17 @@ html, body {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-bottom: 1px solid #313244;
-  background: #181825;
+  border-bottom: 1px solid #1e2a35;
+  background: #0D1011;
   flex-shrink: 0;
 }
 
 .filter-btn {
-  background: #313244;
-  border: 1px solid #45475a;
+  background: #1e2a35;
+  border: 1px solid #2a3a48;
   border-radius: 4px;
   padding: 4px 12px;
-  color: #cdd6f4;
+  color: #EDF9FF;
   font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
@@ -88,15 +88,15 @@ html, body {
 }
 
 .filter-btn:hover {
-  background: #45475a;
+  background: #2a3a48;
 }
 
 #search {
-  background: #313244;
-  border: 1px solid #45475a;
+  background: #1e2a35;
+  border: 1px solid #2a3a48;
   border-radius: 4px;
   padding: 4px 12px;
-  color: #cdd6f4;
+  color: #EDF9FF;
   font-size: 13px;
   flex-grow: 1;
   outline: none;
@@ -104,11 +104,11 @@ html, body {
 }
 
 #search::placeholder {
-  color: #6c7086;
+  color: #5a7a8e;
 }
 
 #search:focus {
-  border-color: #585b70;
+  border-color: #3d5060;
 }
 
 /* ── Main Grid ───────────────────────────────────────────────── */
@@ -124,7 +124,7 @@ html, body {
 /* ── Panels ──────────────────────────────────────────────────── */
 #outline-panel {
   overflow-y: auto;
-  background: #181825;
+  background: #0D1011;
   min-height: 0;
 }
 
@@ -142,19 +142,19 @@ html, body {
 
 #detail-panel {
   overflow-y: auto;
-  background: #181825;
+  background: #0D1011;
   min-height: 0;
 }
 
 /* ── Dividers ────────────────────────────────────────────────── */
 .divider {
   cursor: col-resize;
-  background: #313244;
+  background: #1e2a35;
   transition: background 0.15s;
 }
 
 .divider:hover, .divider.active {
-  background: #585b70;
+  background: #3d5060;
 }
 
 /* ── Status Bar ──────────────────────────────────────────────── */
@@ -164,11 +164,11 @@ html, body {
   align-items: center;
   gap: 16px;
   padding: 4px 12px;
-  border-top: 1px solid #313244;
+  border-top: 1px solid #1e2a35;
   font-size: 12px;
-  color: #a6adc8;
+  color: #B5E3FD;
   flex-shrink: 0;
-  background: #181825;
+  background: #0D1011;
 }
 
 /* ── Tree Nodes ──────────────────────────────────────────────── */
@@ -204,7 +204,7 @@ html, body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: #6c7086;
+  color: #5a7a8e;
   transition: transform 0.15s ease;
 }
 
@@ -217,7 +217,7 @@ html, body {
 }
 
 .tree-arrow.has-children:hover {
-  color: #cdd6f4;
+  color: #EDF9FF;
 }
 
 .tree-icon {
@@ -282,7 +282,7 @@ html, body {
 /* ── Detail Panel ────────────────────────────────────────────── */
 .detail-header {
   padding: 12px;
-  border-bottom: 1px solid #313244;
+  border-bottom: 1px solid #1e2a35;
 }
 
 .detail-title {
@@ -293,11 +293,11 @@ html, body {
 
 .detail-subtitle {
   font-size: 12px;
-  color: #a6adc8;
+  color: #B5E3FD;
 }
 
 .detail-section {
-  border-bottom: 1px solid #313244;
+  border-bottom: 1px solid #1e2a35;
 }
 
 .detail-section-header {
@@ -308,7 +308,7 @@ html, body {
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
-  color: #a6adc8;
+  color: #B5E3FD;
 }
 
 .detail-section-header:hover {
@@ -331,11 +331,11 @@ html, body {
 }
 
 .detail-label {
-  color: #a6adc8;
+  color: #B5E3FD;
 }
 
 .detail-value {
-  color: #cdd6f4;
+  color: #EDF9FF;
   text-align: right;
   max-width: 60%;
   overflow: hidden;
@@ -353,17 +353,17 @@ html, body {
 }
 
 /* ── JSON Syntax Highlighting ─────────────────────────────────── */
-.json-key { color: #89b4fa; }
+.json-key { color: #7BBAE9; }
 .json-string { color: #a6e3a1; }
 .json-number { color: #89dceb; }
 .json-boolean { color: #fab387; }
-.json-null { color: #6c7086; }
-pre.raw-json { font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-break: break-all; padding: 8px; background: #11111b; border-radius: 4px; max-height: 400px; overflow-y: auto; }
+.json-null { color: #5a7a8e; }
+pre.raw-json { font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-break: break-all; padding: 8px; background: #080a0b; border-radius: 4px; max-height: 400px; overflow-y: auto; }
 
-.detail-preview { padding: 8px 12px; border-bottom: 1px solid #313244; }
-.detail-preview img { max-width: 100%; border-radius: 4px; background: #11111b; cursor: pointer; }
-.detail-preview img:hover { outline: 2px solid #89b4fa; }
-.detail-preview-label { font-size: 11px; color: #6c7086; margin-bottom: 4px; }
+.detail-preview { padding: 8px 12px; border-bottom: 1px solid #1e2a35; }
+.detail-preview img { max-width: 100%; border-radius: 4px; background: #080a0b; cursor: pointer; }
+.detail-preview img:hover { outline: 2px solid #7BBAE9; }
+.detail-preview-label { font-size: 11px; color: #5a7a8e; margin-bottom: 4px; }
 
 /* ── Detail Panel extras ──────────────────────────────────────── */
 .detail-empty {
@@ -371,7 +371,7 @@ pre.raw-json { font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-br
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #6c7086;
+  color: #5a7a8e;
   font-size: 13px;
 }
 
@@ -390,7 +390,7 @@ pre.raw-json { font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-br
 }
 
 .detail-parent-link {
-  color: #89b4fa;
+  color: #7BBAE9;
   cursor: pointer;
   text-decoration: underline;
 }
@@ -403,9 +403,9 @@ pre.raw-json { font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-br
   margin-bottom: 6px;
   font-size: 12px;
   line-height: 1.5;
-  background: #11111b;
+  background: #080a0b;
   border-radius: 6px;
-  border-left: 3px solid #45475a;
+  border-left: 3px solid #2a3a48;
   padding: 8px 10px;
 }
 .interaction-task.has-quest { border-left-color: #fab387; }
@@ -415,7 +415,7 @@ pre.raw-json { font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-br
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #6c7086;
+  color: #5a7a8e;
   margin-bottom: 2px;
 }
 
@@ -429,13 +429,13 @@ pre.raw-json { font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-br
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #6c7086;
+  color: #5a7a8e;
   margin-top: 6px;
   margin-bottom: 2px;
 }
 
 .interaction-effect {
-  color: #89b4fa;
+  color: #7BBAE9;
   padding-left: 12px;
   display: flex;
   align-items: center;
@@ -443,11 +443,11 @@ pre.raw-json { font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-br
 }
 .interaction-effect::before {
   content: '\2192';
-  color: #45475a;
+  color: #2a3a48;
 }
 
 .interaction-detail {
-  color: #6c7086;
+  color: #5a7a8e;
   padding-left: 28px;
   font-size: 11px;
 }
@@ -465,7 +465,7 @@ pre.raw-json { font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-br
 .interaction-state-badge {
   display: inline-block;
   background: rgba(137, 180, 250, 0.12);
-  color: #89b4fa;
+  color: #7BBAE9;
   padding: 1px 8px;
   border-radius: 3px;
   font-size: 11px;
@@ -473,22 +473,22 @@ pre.raw-json { font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-br
 }
 
 .interaction-none {
-  color: #6c7086;
+  color: #5a7a8e;
   font-style: italic;
   font-size: 12px;
 }
 
 /* ── Filter Dropdowns ─────────────────────────────────────────── */
 .filter-btn-container { position: relative; }
-.filter-btn.active { background: #45475a; border-color: #89b4fa; color: #89b4fa; }
+.filter-btn.active { background: #2a3a48; border-color: #7BBAE9; color: #7BBAE9; }
 .filter-dropdown {
   display: none;
   position: absolute;
   top: 100%;
   left: 0;
   margin-top: 4px;
-  background: #1e1e2e;
-  border: 1px solid #45475a;
+  background: #131718;
+  border: 1px solid #2a3a48;
   border-radius: 6px;
   padding: 4px 0;
   min-width: 200px;
@@ -498,11 +498,11 @@ pre.raw-json { font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-br
   box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }
 .filter-dropdown.open { display: block; }
-.filter-clear { padding: 4px 12px; font-size: 11px; color: #89b4fa; cursor: pointer; border-bottom: 1px solid #313244; margin-bottom: 4px; }
+.filter-clear { padding: 4px 12px; font-size: 11px; color: #7BBAE9; cursor: pointer; border-bottom: 1px solid #1e2a35; margin-bottom: 4px; }
 .filter-clear:hover { background: rgba(137,180,250,0.1); }
 .filter-item { display: flex; align-items: center; gap: 6px; padding: 4px 12px; font-size: 13px; cursor: pointer; }
 .filter-item:hover { background: rgba(255,255,255,0.06); }
-.filter-item input[type="checkbox"] { accent-color: #89b4fa; }
+.filter-item input[type="checkbox"] { accent-color: #7BBAE9; }
 </style>
 </head>
 <body>
@@ -512,7 +512,7 @@ pre.raw-json { font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-br
     <div class="drop-box">
       Drop snapshot.json here
       <div class="drop-hint">Visualize and inspect any Portals room data JSON file</div>
-      <div class="drop-hint" style="margin-top: 12px; font-size: 11px; color: #585b70;">3D viewport &middot; Object tree &middot; Interaction inspector &middot; Filter by type, trigger, effect, or quest</div>
+      <div class="drop-hint" style="margin-top: 12px; font-size: 11px; color: #3d5060;">3D viewport &middot; Object tree &middot; Interaction inspector &middot; Filter by type, trigger, effect, or quest</div>
     </div>
   </div>
 
@@ -522,7 +522,7 @@ pre.raw-json { font-size: 11px; line-height: 1.4; white-space: pre-wrap; word-br
     <div class="filter-btn-container"><button class="filter-btn" id="filter-effect">Effect</button></div>
     <div class="filter-btn-container"><button class="filter-btn" id="filter-quest">Quest</button></div>
     <input type="text" id="search" placeholder="Search items...">
-    <div style="flex-shrink:0; border-left: 1px solid #313244; padding-left: 8px;">
+    <div style="flex-shrink:0; border-left: 1px solid #1e2a35; padding-left: 8px;">
       <button class="filter-btn" id="view-mode-btn" title="Toggle wireframe / solid">Wireframe</button>
     </div>
   </div>
@@ -1018,7 +1018,7 @@ function buildOutline() {
 function initScene() {
   const container = document.getElementById('scene-panel');
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1a1a2e);
+  scene.background = new THREE.Color(0x0D1011);
 
   camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 10000);
   camera.position.set(20, 20, 20);
@@ -1033,7 +1033,7 @@ function initScene() {
   controls.dampingFactor = 0.1;
 
   // Grid floor at Y=0
-  const grid = new THREE.GridHelper(200, 200, 0x333355, 0x222244);
+  const grid = new THREE.GridHelper(200, 200, 0x1e3040, 0x152530);
   scene.add(grid);
 
   // Axes helper
@@ -1161,9 +1161,9 @@ function createItemMesh(item, viewMode) {
     const group = new THREE.Group();
     // Bulb
     group.add(new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshBasicMaterial({ color })));
-    // Cone beam pointing downward (-Y)
+    // Cone beam opening downward (-Y). ConeGeometry tip is at +Y by default, base at -Y.
+    // Positioned so tip is near the bulb (y=0) and base opens below.
     const cone = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.2, 12, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false }));
-    cone.rotation.x = Math.PI;
     cone.position.y = -0.7;
     group.add(cone);
     return group;
@@ -1494,7 +1494,7 @@ function createMiniPreview(container, url) {
   const height = container.clientHeight || 280;
 
   const miniScene = new THREE.Scene();
-  miniScene.background = new THREE.Color(0x11111b);
+  miniScene.background = new THREE.Color(0x080a0b);
 
   const miniCamera = new THREE.PerspectiveCamera(45, width / height, 0.01, 100);
   const miniRenderer = new THREE.WebGLRenderer({ antialias: true });
@@ -1544,15 +1544,21 @@ function createMiniPreview(container, url) {
   }).catch(() => {
     // Show error text
     const err = document.createElement('div');
-    err.style.cssText = 'position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #6c7086; font-size: 12px;';
+    err.style.cssText = 'position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #5a7a8e; font-size: 12px;';
     err.textContent = 'Failed to load model';
     container.appendChild(err);
   });
 
   miniPreviewCleanup = () => {
     if (animId) cancelAnimationFrame(animId);
-    miniRenderer.dispose();
     miniControls.dispose();
+    // Force-release the WebGL context to prevent "too many contexts" error
+    const gl = miniRenderer.getContext();
+    if (gl && gl.getExtension) {
+      const ext = gl.getExtension('WEBGL_lose_context');
+      if (ext) ext.loseContext();
+    }
+    miniRenderer.dispose();
     container.innerHTML = '';
   };
 }
@@ -1935,7 +1941,7 @@ function updateTreeFilters() {
     if (!emptyMsg) {
       emptyMsg = document.createElement('div');
       emptyMsg.id = 'outline-empty-msg';
-      emptyMsg.style.cssText = 'padding: 24px 12px; text-align: center; color: #6c7086; font-size: 13px;';
+      emptyMsg.style.cssText = 'padding: 24px 12px; text-align: center; color: #5a7a8e; font-size: 13px;';
       emptyMsg.textContent = 'No items match filters';
       document.getElementById('outline-panel').appendChild(emptyMsg);
     }
@@ -2148,6 +2154,11 @@ function renderEffectorLine(effector, container) {
 // ── Detail Panel Update ─────────────────────────────────────────
 
 function updateDetailPanel() {
+  // Clean up any active mini 3D preview before clearing the panel
+  if (miniPreviewCleanup) {
+    miniPreviewCleanup();
+    miniPreviewCleanup = null;
+  }
   const panel = document.getElementById('detail-panel');
   panel.innerHTML = '';
 
@@ -2213,7 +2224,7 @@ function updateDetailPanel() {
 
     // Mini 3D viewport for GLB preview
     const previewCanvas = document.createElement('div');
-    previewCanvas.style.cssText = 'width: 100%; aspect-ratio: 1; background: #11111b; border-radius: 4px; overflow: hidden; position: relative;';
+    previewCanvas.style.cssText = 'width: 100%; aspect-ratio: 1; background: #080a0b; border-radius: 4px; overflow: hidden; position: relative;';
     preview.appendChild(previewCanvas);
 
     // Link to original URL
@@ -2221,7 +2232,7 @@ function updateDetailPanel() {
     link.href = contentUrl;
     link.target = '_blank';
     link.textContent = contentUrl.split('/').pop();
-    link.style.cssText = 'color: #89b4fa; font-size: 11px; word-break: break-all; display: block; margin-top: 4px;';
+    link.style.cssText = 'color: #7BBAE9; font-size: 11px; word-break: break-all; display: block; margin-top: 4px;';
     preview.appendChild(link);
     panel.appendChild(preview);
 
@@ -2240,7 +2251,7 @@ function updateDetailPanel() {
 
     const textBlock = document.createElement('pre');
     textBlock.className = 'raw-json';
-    textBlock.style.cssText += 'white-space: pre-wrap; word-break: break-word; color: #cdd6f4; font-size: 12px; line-height: 1.6;';
+    textBlock.style.cssText += 'white-space: pre-wrap; word-break: break-word; color: #EDF9FF; font-size: 12px; line-height: 1.6;';
     // Parse RTF-style tags into readable format
     const rawText = extra.text;
     // Show the raw RTF markup so users can see how it's formatted
@@ -2535,8 +2546,8 @@ function boot(data) {
   // Warn if running from file:// (GLB loading will fail due to CORS)
   if (window.location.protocol === 'file:') {
     const warn = document.createElement('div');
-    warn.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999;background:#f38ba8;color:#1e1e2e;padding:6px 16px;font-size:13px;text-align:center;font-weight:500;';
-    warn.innerHTML = '3D models won\u2019t load from file://. Run: <code style="background:rgba(0,0,0,0.15);padding:2px 6px;border-radius:3px">python3 -m http.server 8080</code> in this folder, then open <a href="http://localhost:8080" style="color:#1e1e2e;text-decoration:underline">localhost:8080</a>';
+    warn.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999;background:#f38ba8;color:#131718;padding:6px 16px;font-size:13px;text-align:center;font-weight:500;';
+    warn.innerHTML = '3D models won\u2019t load from file://. Run: <code style="background:rgba(0,0,0,0.15);padding:2px 6px;border-radius:3px">python3 -m http.server 8080</code> in this folder, then open <a href="http://localhost:8080" style="color:#131718;text-decoration:underline">localhost:8080</a>';
     document.body.prepend(warn);
   }
 
