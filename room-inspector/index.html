@@ -708,6 +708,24 @@ const FIELD_NAMES = {
   firerate: 'Fire Rate', clipSize: 'Clip Size',
   sn: 'Spawn Name', auto: 'Auto Enter',
   text: 'Text', lookAtCamera: 'Billboard',
+  op: 'Operation', scopeType: 'Scope', targetId: 'Target Item',
+  dur: 'Duration', del: 'Delay', spd: 'Speed',
+  vol: 'Volume', pit: 'Pitch', loop: 'Loop',
+  msg: 'Message', amt: 'Amount', hp: 'Health',
+  dmg: 'Damage', cd: 'Cooldown', rad: 'Radius',
+  key: 'Key', btn: 'Button',
+};
+
+// Enum value lookups for coded fields
+const FIELD_VALUES = {
+  op: { 0: 'Set', 1: 'Set', 2: 'Add', 3: 'Subtract', 4: 'Multiply', 5: 'Divide' },
+  scopeType: { 0: 'Global', 1: 'Per Player', 2: 'Team' },
+  weaponType: { 0: 'Pistol', 1: 'Rifle', 2: 'Shotgun', 3: 'Sniper' },
+  auto: { 0: 'No', 1: 'Yes', true: 'Yes', false: 'No' },
+  c: { 0: 'None', 1: 'Box', 2: 'Mesh', true: 'Yes', false: 'No' },
+  s: { 0: 'Off', 1: 'On', true: 'On', false: 'Off' },
+  nav: { 0: 'Off', 1: 'On', true: 'On', false: 'Off' },
+  lookAtCamera: { 0: 'No', 1: 'Yes', true: 'Yes', false: 'No' },
 };
 
 const QUEST_STATES = {
@@ -1087,16 +1105,19 @@ function createItemMesh(item, viewMode) {
     if (solid) return makeSolid(geo, color, { side: THREE.DoubleSide });
     return makeWireframe(geo, color);
 
-  // ── WorldText ── canvas texture on a plane
+  // ── WorldText ── "T" marker
   } else if (type === 'WorldText') {
-    const text = item.extraData?.text || 'Text';
-    const hexColor = item.extraData?.col ? '#' + item.extraData.col : '#c0c0c0';
-    const { texture, aspect } = createTextTexture(text, hexColor);
-    const height = scale.y || 0.5;
-    const width = height * aspect;
-    const geo = new THREE.PlaneGeometry(width, height);
-    const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide, depthWrite: false });
-    return new THREE.Mesh(geo, mat);
+    const hexColor = item.extraData?.col ? '#' + item.extraData.col : (TYPE_COLORS[type] || '#c0c0c0');
+    const color = new THREE.Color(hexColor);
+    const group = new THREE.Group();
+    // Horizontal bar of T
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.08), new THREE.MeshBasicMaterial({ color }));
+    bar.position.y = 0.25;
+    group.add(bar);
+    // Vertical stem of T
+    const stem = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.08), new THREE.MeshBasicMaterial({ color }));
+    group.add(stem);
+    return group;
 
   // ── Point Light ── small sphere with glow ring
   } else if (type === 'Light') {
@@ -1114,8 +1135,9 @@ function createItemMesh(item, viewMode) {
     const group = new THREE.Group();
     // Bulb
     group.add(new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshBasicMaterial({ color })));
-    // Cone beam pointing downward
+    // Cone beam pointing downward (-Y)
     const cone = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.2, 12, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false }));
+    cone.rotation.x = Math.PI;
     cone.position.y = -0.7;
     group.add(cone);
     return group;
@@ -1164,10 +1186,10 @@ function createItemMesh(item, viewMode) {
     // Body
     const body = solid ? makeSolid(new THREE.BoxGeometry(0.4, 0.3, 0.3), color) : makeWireframe(new THREE.BoxGeometry(0.4, 0.3, 0.3), color);
     group.add(body);
-    // Lens cone
+    // Lens cone pointing forward (-Z)
     const lens = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.3, 8), solid ? new THREE.MeshStandardMaterial({ color: 0x666666 }) : new THREE.MeshBasicMaterial({ color: 0x666666 }));
-    lens.rotation.z = Math.PI / 2;
-    lens.position.x = 0.35;
+    lens.rotation.x = Math.PI / 2;
+    lens.position.z = -0.3;
     group.add(lens);
     return group;
 
@@ -1187,9 +1209,9 @@ function createItemMesh(item, viewMode) {
   } else if (type === 'Gun' || type === 'Shotgun') {
     const color = new THREE.Color(TYPE_COLORS[type] || '#ff0000');
     const group = new THREE.Group();
-    // Barrel
+    // Barrel pointing forward (-Z)
     const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.7, 8), solid ? new THREE.MeshStandardMaterial({ color }) : new THREE.MeshBasicMaterial({ color }));
-    barrel.rotation.z = Math.PI / 2;
+    barrel.rotation.x = Math.PI / 2;
     group.add(barrel);
     // Grip
     const grip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.25, 0.08), solid ? new THREE.MeshStandardMaterial({ color }) : new THREE.MeshBasicMaterial({ color }));
@@ -1983,7 +2005,7 @@ function getObjectDetails(obj, skipKeys) {
   const details = [];
   for (const [key, val] of Object.entries(obj)) {
     if (skip.has(key)) continue;
-    if (val == null || val === '' || val === false) continue;
+    if (val == null || val === '') continue;
     const label = FIELD_NAMES[key] || EFFECT_NAMES[key] || TRIGGER_NAMES[key] || key;
     if (typeof val === 'object' && !Array.isArray(val)) {
       // Flatten one level for nested objects like _transformState, v (velocity)
@@ -1994,11 +2016,15 @@ function getObjectDetails(obj, skipKeys) {
     } else if (Array.isArray(val)) {
       details.push([label, `[${val.length} items]`]);
     } else if (typeof val === 'boolean') {
-      details.push([label, 'Yes']);
+      const enumLookup = FIELD_VALUES[key];
+      details.push([label, enumLookup?.[val] || (val ? 'Yes' : 'No')]);
     } else if (typeof val === 'string' && val.startsWith('http')) {
       details.push([label, val.split('/').pop() || val]);
     } else {
-      details.push([label, String(val)]);
+      // Check for enum value lookup
+      const enumLookup = FIELD_VALUES[key];
+      const displayVal = enumLookup?.[val] || String(val);
+      details.push([label, displayVal]);
     }
   }
   return details;
@@ -2175,6 +2201,26 @@ function updateDetailPanel() {
 
     // Render mini 3D preview after DOM attach
     requestAnimationFrame(() => createMiniPreview(previewCanvas, contentUrl));
+  }
+
+  // ── WorldText Preview ──
+  if (item.prefabName === 'WorldText' && extra.text) {
+    const preview = document.createElement('div');
+    preview.className = 'detail-preview';
+    const labelEl = document.createElement('div');
+    labelEl.className = 'detail-preview-label';
+    labelEl.textContent = 'Text Content';
+    preview.appendChild(labelEl);
+
+    const textBlock = document.createElement('pre');
+    textBlock.className = 'raw-json';
+    textBlock.style.cssText += 'white-space: pre-wrap; word-break: break-word; color: #cdd6f4; font-size: 12px; line-height: 1.6;';
+    // Parse RTF-style tags into readable format
+    const rawText = extra.text;
+    // Show the raw RTF markup so users can see how it's formatted
+    textBlock.textContent = rawText;
+    preview.appendChild(textBlock);
+    panel.appendChild(preview);
   }
 
   // ── Transform Section ──
