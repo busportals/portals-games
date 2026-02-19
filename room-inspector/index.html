@@ -1161,10 +1161,11 @@ function createItemMesh(item, viewMode) {
     const group = new THREE.Group();
     // Bulb
     group.add(new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshBasicMaterial({ color })));
-    // Cone beam opening downward (-Y). ConeGeometry tip is at +Y by default, base at -Y.
-    // Positioned so tip is near the bulb (y=0) and base opens below.
+    // Cone beam along local -Z (Unity's forward axis). ConeGeometry tip is at +Y by default.
+    // Rotate -90deg around X so tip → +Z (at source) and base → -Z (beam direction).
     const cone = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.2, 12, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false }));
-    cone.position.y = -0.7;
+    cone.rotation.x = -Math.PI / 2;
+    cone.position.z = -0.7;
     group.add(cone);
     return group;
 
