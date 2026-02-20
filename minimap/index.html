@@ -298,8 +298,9 @@
             var otherDots = {};
 
             function worldToImg(worldX, worldZ) {
-                var imgX = (worldZ - config.zMin) / (config.zMax - config.zMin) * config.imgW;
-                var imgY = (worldX - config.xMin) / (config.xMax - config.xMin) * config.imgH;
+                // X → horizontal (left/right), Z → vertical (inverted: +Z = top of image)
+                var imgX = (worldX - config.xMin) / (config.xMax - config.xMin) * config.imgW;
+                var imgY = (config.zMax - worldZ) / (config.zMax - config.zMin) * config.imgH;
                 return { x: imgX, y: imgY };
             }
 
@@ -345,8 +346,8 @@
             if (typeof PortalsSdk === 'undefined') {
                 console.log('[Minimap] Dev mode — move mouse to simulate position');
                 document.addEventListener('mousemove', function(e) {
-                    latestWorldX = config.xMin + (e.clientY / window.innerHeight) * (config.xMax - config.xMin);
-                    latestWorldZ = config.zMin + (e.clientX / window.innerWidth) * (config.zMax - config.zMin);
+                    latestWorldX = config.xMin + (e.clientX / window.innerWidth) * (config.xMax - config.xMin);
+                    latestWorldZ = config.zMax - (e.clientY / window.innerHeight) * (config.zMax - config.zMin);
                     myName = myName || 'DevPlayer';
                     updateDisplay();
                 });
@@ -382,8 +383,8 @@
             if (typeof PortalsSdk === 'undefined') {
                 console.log('[Calibration] Dev mode — mouse position simulates world coords');
                 document.addEventListener('mousemove', function(e) {
-                    latestWorldX = (e.clientY / window.innerHeight) * 100;
-                    latestWorldZ = (e.clientX / window.innerWidth) * 100;
+                    latestWorldX = (e.clientX / window.innerWidth) * 100;
+                    latestWorldZ = 100 - (e.clientY / window.innerHeight) * 100;
                 });
             }
 
@@ -458,12 +459,13 @@
                 var p2 = pts[1];
 
                 // Solve linear mapping from two points
-                // imgPx = (worldZ - zMin) / (zMax - zMin) * imgW
-                // imgPy = (worldX - xMin) / (xMax - xMin) * imgH
-                var zRange = (p2.wz - p1.wz) / (p2.px - p1.px) * config.imgW;
-                var zMin = p1.wz - (p1.px / config.imgW) * zRange;
-                var xRange = (p2.wx - p1.wx) / (p2.py - p1.py) * config.imgH;
-                var xMin = p1.wx - (p1.py / config.imgH) * xRange;
+                // imgPx = (worldX - xMin) / (xMax - xMin) * imgW  → X is horizontal
+                // imgPy = (zMax - worldZ) / (zMax - zMin) * imgH  → Z is vertical, inverted (+Z = top)
+                var xRange = (p2.wx - p1.wx) / (p2.px - p1.px) * config.imgW;
+                var xMin = p1.wx - (p1.px / config.imgW) * xRange;
+                var zRange = -(p2.wz - p1.wz) / (p2.py - p1.py) * config.imgH;
+                var zMax = p1.wz + (p1.py / config.imgH) * zRange;
+                var zMin = zMax - zRange;
 
                 // Build final URL
                 var baseUrl = window.location.origin + window.location.pathname;
@@ -472,7 +474,7 @@
                 finalParams.set('xMin', xMin.toFixed(2));
                 finalParams.set('xMax', (xMin + xRange).toFixed(2));
                 finalParams.set('zMin', zMin.toFixed(2));
-                finalParams.set('zMax', (zMin + zRange).toFixed(2));
+                finalParams.set('zMax', zMax.toFixed(2));
                 finalParams.set('imgW', config.imgW);
                 finalParams.set('imgH', config.imgH);
 
