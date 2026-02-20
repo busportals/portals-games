@@ -333,6 +333,11 @@
                 }
             }
 
+            // Return keyboard focus to the game — minimap is passive, no input needed
+            if (typeof PortalsSdk !== 'undefined') {
+                PortalsSdk.focusGameKeyboard();
+            }
+
             // Listen for heartbeat
             if (typeof PortalsSdk !== 'undefined') {
                 PortalsSdk.setMessageListener(function(msg) {
@@ -371,6 +376,11 @@
             var step = 'mark1'; // mark1 -> tap1 -> mark2 -> tap2 -> done
             var capturedWorldX = 0;
             var capturedWorldZ = 0;
+
+            // Return keyboard focus so player can walk to landmarks
+            if (typeof PortalsSdk !== 'undefined') {
+                PortalsSdk.focusGameKeyboard();
+            }
 
             // Listen for heartbeat to track position
             if (typeof PortalsSdk !== 'undefined') {
@@ -495,11 +505,27 @@
                 document.getElementById('cal-url-box').textContent = finalUrl;
 
                 document.getElementById('cal-copy-btn').addEventListener('click', function() {
-                    navigator.clipboard.writeText(finalUrl).then(function() {
-                        var msg = document.getElementById('cal-copy-msg');
-                        msg.style.opacity = '1';
-                        setTimeout(function() { msg.style.opacity = '0'; }, 2000);
-                    });
+                    // Fallback copy — clipboard API doesn't work inside iframes
+                    var ta = document.createElement('textarea');
+                    ta.value = finalUrl;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    var ok = false;
+                    try { ok = document.execCommand('copy'); } catch(e) {}
+                    document.body.removeChild(ta);
+                    if (!ok) {
+                        // Last resort: select the URL box text for manual copy
+                        var range = document.createRange();
+                        range.selectNodeContents(document.getElementById('cal-url-box'));
+                        window.getSelection().removeAllRanges();
+                        window.getSelection().addRange(range);
+                    }
+                    var msg = document.getElementById('cal-copy-msg');
+                    msg.textContent = ok ? 'Copied!' : 'Selected — press Ctrl+C to copy';
+                    msg.style.opacity = '1';
+                    setTimeout(function() { msg.style.opacity = '0'; }, 3000);
                 });
             }
         }
