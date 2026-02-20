@@ -42,26 +42,28 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            width: 10px;
-            height: 10px;
-            margin: -5px 0 0 -5px;
-            border-radius: 50%;
+            width: 14px;
+            height: 14px;
+            margin: -7px 0 0 -7px;
+            clip-path: polygon(50% 0%, 100% 100%, 50% 70%, 0% 100%);
             z-index: 2;
             pointer-events: none;
+            will-change: transform;
+            transition: transform 0.12s ease-out;
         }
 
         .other-dot {
             position: absolute;
-            width: 8px;
-            height: 8px;
-            margin: -4px 0 0 -4px;
-            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            margin: -6px 0 0 -6px;
+            clip-path: polygon(50% 0%, 100% 100%, 50% 70%, 0% 100%);
             z-index: 1;
             pointer-events: none;
             top: 50%;
             left: 50%;
             will-change: transform;
-            transition: transform 0.15s ease-out;
+            transition: transform 0.12s ease-out;
         }
 
         /* ========== CALIBRATION MODE ========== */
@@ -242,6 +244,8 @@
         var latestWorldZ = 0;
         var myName = null;
         var allPositions = {}; // { playerName: { x, z } }
+        var allRotations = {}; // { playerName: degrees }
+        var selfRotation = 0;
 
         function parsePositionMessage(message) {
             // Format: "PlayerName"pos:{"Player1"="(x1,y1,z1)", "Player2"="(x2,y2,z2)"}
@@ -264,6 +268,26 @@
                 if (name === myName) {
                     latestWorldX = wx;
                     latestWorldZ = wz;
+                }
+            }
+            return true;
+        }
+
+        function parseRotationMessage(message) {
+            // Format: "PlayerName"rot:{"Player1"="343.0", "Player2"="120.5"}
+            var rotMatch = message.match(/"([^"]+)"rot:\{(.+)\}/);
+            if (!rotMatch) return false;
+
+            var dataStr = rotMatch[2];
+            var playerRegex = /"([^"]+)"\s*=\s*"([^"]+)"/g;
+            var match;
+            while ((match = playerRegex.exec(dataStr)) !== null) {
+                var name = match[1];
+                var deg = parseFloat(match[2]) || 0;
+                allRotations[name] = deg;
+
+                if (name === myName) {
+                    selfRotation = deg;
                 }
             }
             return true;
@@ -293,7 +317,6 @@
             mapImg.style.height = config.imgH + 'px';
 
             selfDot.style.background = config.dotColor;
-            selfDot.style.boxShadow = '0 0 8px ' + config.dotColor;
 
             var otherDots = {};
 
@@ -311,7 +334,10 @@
                 var ty = config.radius - selfImg.y;
                 mapImg.style.transform = 'translate(' + tx + 'px, ' + ty + 'px)';
 
-                // Update other player dots
+                // Rotate self arrow (clip-path arrow points up at 0deg, Portals 0deg = +Z = up on map)
+                selfDot.style.transform = 'rotate(' + selfRotation + 'deg)';
+
+                // Update other player arrows
                 if (config.showAll) {
                     for (var name in allPositions) {
                         if (name === myName) continue;
@@ -319,16 +345,16 @@
                         var otherImg = worldToImg(pos.x, pos.z);
                         var ox = otherImg.x - selfImg.x;
                         var oy = otherImg.y - selfImg.y;
+                        var rot = allRotations[name] || 0;
 
                         if (!otherDots[name]) {
                             var dot = document.createElement('div');
                             dot.className = 'other-dot';
                             dot.style.background = config.otherColor;
-                            dot.style.boxShadow = '0 0 6px ' + config.otherColor;
                             minimap.appendChild(dot);
                             otherDots[name] = dot;
                         }
-                        otherDots[name].style.transform = 'translate(' + ox + 'px, ' + oy + 'px)';
+                        otherDots[name].style.transform = 'translate(' + ox + 'px, ' + oy + 'px) rotate(' + rot + 'deg)';
                     }
                 }
             }
@@ -338,22 +364,26 @@
                 PortalsSdk.focusGameKeyboard();
             }
 
-            // Listen for heartbeat
+            // Listen for heartbeat (position + rotation messages)
             if (typeof PortalsSdk !== 'undefined') {
                 PortalsSdk.setMessageListener(function(msg) {
-                    if (parsePositionMessage(msg)) {
-                        updateDisplay();
-                    }
+                    var updated = parsePositionMessage(msg) || parseRotationMessage(msg);
+                    if (updated) updateDisplay();
                 });
             }
 
-            // Dev mode: mouse movement simulates position
+            // Dev mode: mouse simulates position, arrow keys simulate rotation
             if (typeof PortalsSdk === 'undefined') {
-                console.log('[Minimap] Dev mode — move mouse to simulate position');
+                console.log('[Minimap] Dev mode — mouse=position, arrow keys=rotation');
                 document.addEventListener('mousemove', function(e) {
                     latestWorldX = config.xMin + (e.clientX / window.innerWidth) * (config.xMax - config.xMin);
                     latestWorldZ = config.zMax - (e.clientY / window.innerHeight) * (config.zMax - config.zMin);
                     myName = myName || 'DevPlayer';
+                    updateDisplay();
+                });
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'ArrowLeft') selfRotation = (selfRotation - 15 + 360) % 360;
+                    if (e.key === 'ArrowRight') selfRotation = (selfRotation + 15) % 360;
                     updateDisplay();
                 });
             }
@@ -382,10 +412,11 @@
                 PortalsSdk.focusGameKeyboard();
             }
 
-            // Listen for heartbeat to track position
+            // Listen for heartbeat to track position + rotation
             if (typeof PortalsSdk !== 'undefined') {
                 PortalsSdk.setMessageListener(function(msg) {
                     parsePositionMessage(msg);
+                    parseRotationMessage(msg);
                 });
             }
 
@@ -488,13 +519,20 @@
                 finalParams.set('imgW', config.imgW);
                 finalParams.set('imgH', config.imgH);
 
-                // Carry over optional params
-                if (params.get('shape')) finalParams.set('shape', params.get('shape'));
-                if (params.get('radius')) finalParams.set('radius', params.get('radius'));
-                if (params.get('showAll')) finalParams.set('showAll', params.get('showAll'));
-                if (params.get('dotColor')) finalParams.set('dotColor', params.get('dotColor'));
-                if (params.get('otherColor')) finalParams.set('otherColor', params.get('otherColor'));
-                if (params.get('style')) finalParams.set('style', params.get('style'));
+                // Carry over optional display params
+                var carryOver = ['shape', 'radius', 'showAll', 'dotColor', 'otherColor', 'style'];
+                carryOver.forEach(function(k) {
+                    if (params.get(k)) finalParams.set(k, params.get(k));
+                });
+
+                // Add default iframe display settings for minimap use
+                finalParams.set('noCloseBtn', 'true');
+                finalParams.set('noBlur', 'true');
+                finalParams.set('noPointerEvents', 'true');
+                finalParams.set('width', '270');
+                finalParams.set('height', '270');
+                finalParams.set('left', '30');
+                finalParams.set('bottom', '100');
 
                 var finalUrl = baseUrl + '?' + finalParams.toString();
 
