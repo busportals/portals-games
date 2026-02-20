@@ -328,24 +328,38 @@
             }
 
             function updateDisplay() {
-                // Center map on self
+                // Center map on self + rotate so player's forward = up
                 var selfImg = worldToImg(latestWorldX, latestWorldZ);
                 var tx = config.radius - selfImg.x;
                 var ty = config.radius - selfImg.y;
-                mapImg.style.transform = 'translate(' + tx + 'px, ' + ty + 'px)';
+                var angle = -selfRotation;
 
-                // Rotate self arrow (clip-path arrow points up at 0deg, Portals 0deg = +Z = up on map)
-                selfDot.style.transform = 'rotate(' + selfRotation + 'deg)';
+                // Rotate map around player's image position, then translate to center
+                mapImg.style.transformOrigin = selfImg.x + 'px ' + selfImg.y + 'px';
+                mapImg.style.transform = 'translate(' + tx + 'px, ' + ty + 'px) rotate(' + angle + 'deg)';
 
-                // Update other player arrows
+                // Self arrow always points up (forward is always up on rotated map)
+                selfDot.style.transform = '';
+
+                // Update other player arrows — rotate their offsets with the map
                 if (config.showAll) {
+                    var rad = angle * Math.PI / 180;
+                    var cosA = Math.cos(rad);
+                    var sinA = Math.sin(rad);
+
                     for (var name in allPositions) {
                         if (name === myName) continue;
                         var pos = allPositions[name];
                         var otherImg = worldToImg(pos.x, pos.z);
-                        var ox = otherImg.x - selfImg.x;
-                        var oy = otherImg.y - selfImg.y;
-                        var rot = allRotations[name] || 0;
+                        var dx = otherImg.x - selfImg.x;
+                        var dy = otherImg.y - selfImg.y;
+
+                        // Rotate offset to match map rotation
+                        var ox = dx * cosA - dy * sinA;
+                        var oy = dx * sinA + dy * cosA;
+
+                        // Arrow rotation relative to self
+                        var rot = (allRotations[name] || 0) - selfRotation;
 
                         if (!otherDots[name]) {
                             var dot = document.createElement('div');
