@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Minimap</title>
+    <script src="https://portals-labs.github.io/portals-sdk/portals-sdk.js?v=10005456"></script>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: transparent !important;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: white;
+        }
+
+        /* ========== MINIMAP VIEWPORT ========== */
+        #minimap {
+            position: relative;
+            overflow: hidden;
+        }
+        #minimap.circle { border-radius: 50%; }
+        #minimap.dark {
+            background: #0F1519;
+            border: 1px solid #434c4f;
+        }
+        #minimap.minimal {
+            background: transparent;
+            border: none;
+        }
+
+        #map-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            will-change: transform;
+            transition: transform 0.15s ease-out;
+        }
+
+        #self-dot {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            margin: -5px 0 0 -5px;
+            border-radius: 50%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .other-dot {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            margin: -4px 0 0 -4px;
+            border-radius: 50%;
+            z-index: 1;
+            pointer-events: none;
+            top: 50%;
+            left: 50%;
+            will-change: transform;
+            transition: transform 0.15s ease-out;
+        }
+
+        /* ========== CALIBRATION MODE ========== */
+        #calibration {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #0a0e14;
+            flex-direction: column;
+        }
+        #calibration.active { display: flex; }
+
+        #cal-status {
+            padding: 16px 20px;
+            background: #151b23;
+            border-bottom: 1px solid #2a3a4a;
+            font-size: 15px;
+            text-align: center;
+        }
+        #cal-status .step { color: #69d2ff; font-weight: 600; }
+
+        #cal-map-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            cursor: crosshair;
+        }
+        #cal-map-img {
+            max-width: 90vw;
+            max-height: 70vh;
+            object-fit: contain;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .cal-pin {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            margin: -8px 0 0 -8px;
+            border-radius: 50%;
+            border: 2px solid white;
+            z-index: 5;
+            pointer-events: none;
+        }
+        .cal-pin.p1 { background: #69d2ff; }
+        .cal-pin.p2 { background: #ff6b6b; }
+
+        #cal-actions {
+            padding: 16px 20px;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            background: #151b23;
+            border-top: 1px solid #2a3a4a;
+        }
+
+        .cal-btn {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+        .cal-btn:active { transform: scale(0.96); }
+        .cal-btn.primary {
+            background: #69d2ff;
+            color: #0a0e14;
+        }
+        .cal-btn.primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .cal-btn.secondary {
+            background: #2a3a4a;
+            color: white;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(105, 210, 255, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(105, 210, 255, 0); }
+        }
+        .cal-btn.pulse { animation: pulse 2s infinite; }
+
+        #cal-result {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #0a0e14;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            gap: 20px;
+        }
+        #cal-result.active { display: flex; }
+        #cal-result h2 { margin: 0; color: #69d2ff; }
+        #cal-url-box {
+            width: 100%;
+            max-width: 600px;
+            padding: 12px;
+            background: #151b23;
+            border: 1px solid #2a3a4a;
+            border-radius: 8px;
+            color: #8a9aa6;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        #cal-copy-msg {
+            color: #69d2ff;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <!-- MINIMAP MODE -->
+    <div id="minimap">
+        <img id="map-image">
+        <div id="self-dot"></div>
+    </div>
+
+    <!-- CALIBRATION MODE -->
+    <div id="calibration">
+        <div id="cal-status">
+            <span class="step">Step 1 of 2</span> &mdash; Walk to a recognizable spot and tap <strong>Mark Position</strong>
+        </div>
+        <div id="cal-map-container">
+            <img id="cal-map-img">
+        </div>
+        <div id="cal-actions">
+            <button class="cal-btn primary pulse" id="cal-mark-btn">Mark Position</button>
+        </div>
+    </div>
+
+    <!-- CALIBRATION RESULT -->
+    <div id="cal-result">
+        <h2>Calibration Complete</h2>
+        <p>Your minimap URL (copy and use as your iframe URL):</p>
+        <div id="cal-url-box"></div>
+        <button class="cal-btn primary" id="cal-copy-btn">Copy URL</button>
+        <span id="cal-copy-msg">Copied!</span>
+    </div>
+
+    <script>
+    (function() {
+        // ===== PARSE URL PARAMS =====
+        var params = new URLSearchParams(window.location.search);
+
+        var config = {
+            map:        params.get('map') || '',
+            xMin:       parseFloat(params.get('xMin')),
+            xMax:       parseFloat(params.get('xMax')),
+            zMin:       parseFloat(params.get('zMin')),
+            zMax:       parseFloat(params.get('zMax')),
+            imgW:       parseInt(params.get('imgW')) || 500,
+            imgH:       parseInt(params.get('imgH')) || 500,
+            shape:      params.get('shape') || 'circle',
+            radius:     parseInt(params.get('radius')) || 126,
+            showAll:    params.get('showAll') === 'true',
+            dotColor:   decodeURIComponent(params.get('dotColor') || '#69d2ff'),
+            otherColor: decodeURIComponent(params.get('otherColor') || '#ff6b6b'),
+            style:      params.get('style') || 'dark',
+            calibrate:  params.get('calibrate') === 'true'
+        };
+
+        // ===== SHARED: Position tracking from heartbeat =====
+        var latestWorldX = 0;
+        var latestWorldZ = 0;
+        var myName = null;
+        var allPositions = {}; // { playerName: { x, z } }
+
+        function parsePositionMessage(message) {
+            // Format: "PlayerName"pos:{"Player1"="(x1,y1,z1)", "Player2"="(x2,y2,z2)"}
+            var posMatch = message.match(/"([^"]+)"pos:\{(.+)\}/);
+            if (!posMatch) return false;
+
+            var senderName = posMatch[1];
+            if (!myName) myName = senderName;
+
+            var dataStr = posMatch[2];
+            var playerRegex = /"([^"]+)"\s*=\s*"\(([^)]+)\)"/g;
+            var match;
+            while ((match = playerRegex.exec(dataStr)) !== null) {
+                var name = match[1];
+                var coords = match[2].split(',');
+                var wx = parseFloat(coords[0]) || 0;
+                var wz = parseFloat(coords[2]) || 0;
+                allPositions[name] = { x: wx, z: wz };
+
+                if (name === myName) {
+                    latestWorldX = wx;
+                    latestWorldZ = wz;
+                }
+            }
+            return true;
+        }
+
+        // ===== ROUTE: Calibration or Minimap =====
+        if (config.calibrate) {
+            initCalibration();
+        } else {
+            initMinimap();
+        }
+
+        // ===== MINIMAP MODE =====
+        function initMinimap() {
+            var minimap = document.getElementById('minimap');
+            var mapImg = document.getElementById('map-image');
+            var selfDot = document.getElementById('self-dot');
+            var size = config.radius * 2;
+
+            minimap.style.width = size + 'px';
+            minimap.style.height = size + 'px';
+            if (config.shape === 'circle') minimap.classList.add('circle');
+            minimap.classList.add(config.style === 'minimal' ? 'minimal' : 'dark');
+
+            mapImg.src = config.map;
+            mapImg.style.width = config.imgW + 'px';
+            mapImg.style.height = config.imgH + 'px';
+
+            selfDot.style.background = config.dotColor;
+            selfDot.style.boxShadow = '0 0 8px ' + config.dotColor;
+
+            var otherDots = {};
+
+            function worldToImg(worldX, worldZ) {
+                var imgX = (worldZ - config.zMin) / (config.zMax - config.zMin) * config.imgW;
+                var imgY = (worldX - config.xMin) / (config.xMax - config.xMin) * config.imgH;
+                return { x: imgX, y: imgY };
+            }
+
+            function updateDisplay() {
+                // Center map on self
+                var selfImg = worldToImg(latestWorldX, latestWorldZ);
+                var tx = config.radius - selfImg.x;
+                var ty = config.radius - selfImg.y;
+                mapImg.style.transform = 'translate(' + tx + 'px, ' + ty + 'px)';
+
+                // Update other player dots
+                if (config.showAll) {
+                    for (var name in allPositions) {
+                        if (name === myName) continue;
+                        var pos = allPositions[name];
+                        var otherImg = worldToImg(pos.x, pos.z);
+                        var ox = otherImg.x - selfImg.x;
+                        var oy = otherImg.y - selfImg.y;
+
+                        if (!otherDots[name]) {
+                            var dot = document.createElement('div');
+                            dot.className = 'other-dot';
+                            dot.style.background = config.otherColor;
+                            dot.style.boxShadow = '0 0 6px ' + config.otherColor;
+                            minimap.appendChild(dot);
+                            otherDots[name] = dot;
+                        }
+                        otherDots[name].style.transform = 'translate(' + ox + 'px, ' + oy + 'px)';
+                    }
+                }
+            }
+
+            // Listen for heartbeat
+            if (typeof PortalsSdk !== 'undefined') {
+                PortalsSdk.setMessageListener(function(msg) {
+                    if (parsePositionMessage(msg)) {
+                        updateDisplay();
+                    }
+                });
+            }
+
+            // Dev mode: mouse movement simulates position
+            if (typeof PortalsSdk === 'undefined') {
+                console.log('[Minimap] Dev mode — move mouse to simulate position');
+                document.addEventListener('mousemove', function(e) {
+                    latestWorldX = config.xMin + (e.clientY / window.innerHeight) * (config.xMax - config.xMin);
+                    latestWorldZ = config.zMin + (e.clientX / window.innerWidth) * (config.zMax - config.zMin);
+                    myName = myName || 'DevPlayer';
+                    updateDisplay();
+                });
+            }
+        }
+
+        // ===== CALIBRATION MODE =====
+        function initCalibration() {
+            // Hide minimap, show calibration
+            document.getElementById('minimap').style.display = 'none';
+            document.getElementById('calibration').classList.add('active');
+
+            var calImg = document.getElementById('cal-map-img');
+            var calStatus = document.getElementById('cal-status');
+            var markBtn = document.getElementById('cal-mark-btn');
+            var mapContainer = document.getElementById('cal-map-container');
+
+            calImg.src = config.map;
+
+            var points = []; // array of { wx, wz, px, py }
+            var step = 'mark1'; // mark1 -> tap1 -> mark2 -> tap2 -> done
+            var capturedWorldX = 0;
+            var capturedWorldZ = 0;
+
+            // Listen for heartbeat to track position
+            if (typeof PortalsSdk !== 'undefined') {
+                PortalsSdk.setMessageListener(function(msg) {
+                    parsePositionMessage(msg);
+                });
+            }
+
+            // Dev mode: use mouse position
+            if (typeof PortalsSdk === 'undefined') {
+                console.log('[Calibration] Dev mode — mouse position simulates world coords');
+                document.addEventListener('mousemove', function(e) {
+                    latestWorldX = (e.clientY / window.innerHeight) * 100;
+                    latestWorldZ = (e.clientX / window.innerWidth) * 100;
+                });
+            }
+
+            function updateStatus(html) {
+                calStatus.innerHTML = html;
+            }
+
+            function addPin(pageX, pageY, num) {
+                var pin = document.createElement('div');
+                pin.className = 'cal-pin p' + num;
+                pin.style.left = pageX + 'px';
+                pin.style.top = pageY + 'px';
+                mapContainer.appendChild(pin);
+            }
+
+            // Mark Position button
+            markBtn.addEventListener('click', function() {
+                if (step === 'mark1' || step === 'mark2') {
+                    capturedWorldX = latestWorldX;
+                    capturedWorldZ = latestWorldZ;
+                    var pointNum = step === 'mark1' ? 1 : 2;
+
+                    updateStatus(
+                        '<span class="step">Step ' + pointNum + ' of 2</span> &mdash; ' +
+                        'Position captured (' + capturedWorldX.toFixed(1) + ', ' + capturedWorldZ.toFixed(1) + '). ' +
+                        'Now <strong>tap that spot on the map</strong>.'
+                    );
+                    markBtn.disabled = true;
+                    markBtn.classList.remove('pulse');
+                    step = step === 'mark1' ? 'tap1' : 'tap2';
+                }
+            });
+
+            // Tap on map image
+            calImg.addEventListener('click', function(e) {
+                if (step !== 'tap1' && step !== 'tap2') return;
+
+                // Calculate pixel coords on the ORIGINAL image
+                var rect = calImg.getBoundingClientRect();
+                var scaleX = config.imgW / rect.width;
+                var scaleY = config.imgH / rect.height;
+                var px = (e.clientX - rect.left) * scaleX;
+                var py = (e.clientY - rect.top) * scaleY;
+
+                // Visual pin at click location (in container coords)
+                var containerRect = mapContainer.getBoundingClientRect();
+                addPin(e.clientX - containerRect.left, e.clientY - containerRect.top, step === 'tap1' ? 1 : 2);
+
+                points.push({
+                    wx: capturedWorldX,
+                    wz: capturedWorldZ,
+                    px: px,
+                    py: py
+                });
+
+                if (step === 'tap1') {
+                    step = 'mark2';
+                    updateStatus(
+                        '<span class="step">Step 2 of 2</span> &mdash; ' +
+                        'Walk to a <strong>different</strong> recognizable spot and tap <strong>Mark Position</strong>'
+                    );
+                    markBtn.disabled = false;
+                    markBtn.classList.add('pulse');
+                } else {
+                    // Done — calculate bounds
+                    finishCalibration(points);
+                }
+            });
+
+            function finishCalibration(pts) {
+                var p1 = pts[0];
+                var p2 = pts[1];
+
+                // Solve linear mapping from two points
+                // imgPx = (worldZ - zMin) / (zMax - zMin) * imgW
+                // imgPy = (worldX - xMin) / (xMax - xMin) * imgH
+                var zRange = (p2.wz - p1.wz) / (p2.px - p1.px) * config.imgW;
+                var zMin = p1.wz - (p1.px / config.imgW) * zRange;
+                var xRange = (p2.wx - p1.wx) / (p2.py - p1.py) * config.imgH;
+                var xMin = p1.wx - (p1.py / config.imgH) * xRange;
+
+                // Build final URL
+                var baseUrl = window.location.origin + window.location.pathname;
+                var finalParams = new URLSearchParams();
+                finalParams.set('map', config.map);
+                finalParams.set('xMin', xMin.toFixed(2));
+                finalParams.set('xMax', (xMin + xRange).toFixed(2));
+                finalParams.set('zMin', zMin.toFixed(2));
+                finalParams.set('zMax', (zMin + zRange).toFixed(2));
+                finalParams.set('imgW', config.imgW);
+                finalParams.set('imgH', config.imgH);
+
+                // Carry over optional params
+                if (params.get('shape')) finalParams.set('shape', params.get('shape'));
+                if (params.get('radius')) finalParams.set('radius', params.get('radius'));
+                if (params.get('showAll')) finalParams.set('showAll', params.get('showAll'));
+                if (params.get('dotColor')) finalParams.set('dotColor', params.get('dotColor'));
+                if (params.get('otherColor')) finalParams.set('otherColor', params.get('otherColor'));
+                if (params.get('style')) finalParams.set('style', params.get('style'));
+
+                var finalUrl = baseUrl + '?' + finalParams.toString();
+
+                // Show result
+                document.getElementById('calibration').classList.remove('active');
+                var resultEl = document.getElementById('cal-result');
+                resultEl.classList.add('active');
+                document.getElementById('cal-url-box').textContent = finalUrl;
+
+                document.getElementById('cal-copy-btn').addEventListener('click', function() {
+                    navigator.clipboard.writeText(finalUrl).then(function() {
+                        var msg = document.getElementById('cal-copy-msg');
+                        msg.style.opacity = '1';
+                        setTimeout(function() { msg.style.opacity = '0'; }, 2000);
+                    });
+                });
+            }
+        }
+    })();
+    </script>
+</body>
+</html>
