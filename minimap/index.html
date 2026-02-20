@@ -35,7 +35,6 @@
             top: 0;
             left: 0;
             will-change: transform;
-            transition: transform 0.15s ease-out;
         }
 
         #self-dot {
@@ -49,7 +48,6 @@
             z-index: 2;
             pointer-events: none;
             will-change: transform;
-            transition: transform 0.12s ease-out;
         }
 
         .other-dot {
@@ -63,7 +61,6 @@
             top: 50%;
             left: 50%;
             will-change: transform;
-            transition: transform 0.12s ease-out;
         }
 
         /* ========== CALIBRATION MODE ========== */
@@ -320,46 +317,90 @@
 
             var otherDots = {};
 
+            // --- Smoothed display state (lerped toward heartbeat targets at 60fps) ---
+            var displayX = 0;
+            var displayZ = 0;
+            var displayRot = 0;
+            var displayOtherPos = {};  // { name: { x, z } }
+            var displayOtherRot = {};  // { name: degrees }
+            var lastFrameTime = 0;
+            var hasData = false;
+            var SMOOTHING = 0.15; // per-frame lerp at 60fps — higher = snappier
+
+            function lerp(a, b, t) {
+                return a + (b - a) * t;
+            }
+
+            function lerpAngle(a, b, t) {
+                var diff = b - a;
+                // Shortest path around 360°
+                while (diff > 180) diff -= 360;
+                while (diff < -180) diff += 360;
+                return a + diff * t;
+            }
+
             function worldToImg(worldX, worldZ) {
-                // X → horizontal (left/right), Z → vertical (inverted: +Z = top of image)
                 var imgX = (worldX - config.xMin) / (config.xMax - config.xMin) * config.imgW;
                 var imgY = (config.zMax - worldZ) / (config.zMax - config.zMin) * config.imgH;
                 return { x: imgX, y: imgY };
             }
 
-            function updateDisplay() {
-                // Center map on self + rotate so player's forward = up
-                var selfImg = worldToImg(latestWorldX, latestWorldZ);
+            function renderFrame(now) {
+                requestAnimationFrame(renderFrame);
+                if (!hasData) return;
+
+                // Time-corrected lerp factor (consistent across frame rates)
+                var dt = lastFrameTime ? (now - lastFrameTime) / 1000 : 0.016;
+                lastFrameTime = now;
+                var t = 1 - Math.pow(1 - SMOOTHING, dt * 60);
+
+                // Lerp self position and rotation toward heartbeat targets
+                displayX = lerp(displayX, latestWorldX, t);
+                displayZ = lerp(displayZ, latestWorldZ, t);
+                displayRot = lerpAngle(displayRot, selfRotation, t);
+                displayRot = ((displayRot % 360) + 360) % 360;
+
+                // Lerp other players
+                for (var name in allPositions) {
+                    if (name === myName) continue;
+                    var target = allPositions[name];
+                    if (!displayOtherPos[name]) {
+                        // First sighting — snap, don't lerp
+                        displayOtherPos[name] = { x: target.x, z: target.z };
+                        displayOtherRot[name] = allRotations[name] || 0;
+                    } else {
+                        displayOtherPos[name].x = lerp(displayOtherPos[name].x, target.x, t);
+                        displayOtherPos[name].z = lerp(displayOtherPos[name].z, target.z, t);
+                        displayOtherRot[name] = lerpAngle(displayOtherRot[name], allRotations[name] || 0, t);
+                    }
+                }
+
+                // --- Render ---
+                var selfImg = worldToImg(displayX, displayZ);
                 var tx = config.radius - selfImg.x;
                 var ty = config.radius - selfImg.y;
-                var angle = -selfRotation;
+                var angle = -displayRot;
 
-                // Rotate map around player's image position, then translate to center
                 mapImg.style.transformOrigin = selfImg.x + 'px ' + selfImg.y + 'px';
                 mapImg.style.transform = 'translate(' + tx + 'px, ' + ty + 'px) rotate(' + angle + 'deg)';
 
-                // Self arrow always points up (forward is always up on rotated map)
+                // Self arrow always points up (forward = up on rotated map)
                 selfDot.style.transform = '';
 
-                // Update other player arrows — rotate their offsets with the map
+                // Other player arrows
                 if (config.showAll) {
                     var rad = angle * Math.PI / 180;
                     var cosA = Math.cos(rad);
                     var sinA = Math.sin(rad);
 
-                    for (var name in allPositions) {
-                        if (name === myName) continue;
-                        var pos = allPositions[name];
+                    for (var name in displayOtherPos) {
+                        var pos = displayOtherPos[name];
                         var otherImg = worldToImg(pos.x, pos.z);
                         var dx = otherImg.x - selfImg.x;
                         var dy = otherImg.y - selfImg.y;
-
-                        // Rotate offset to match map rotation
                         var ox = dx * cosA - dy * sinA;
                         var oy = dx * sinA + dy * cosA;
-
-                        // Arrow rotation relative to self
-                        var rot = (allRotations[name] || 0) - selfRotation;
+                        var rot = (displayOtherRot[name] || 0) - displayRot;
 
                         if (!otherDots[name]) {
                             var dot = document.createElement('div');
@@ -373,32 +414,40 @@
                 }
             }
 
-            // Return keyboard focus to the game — minimap is passive, no input needed
+            // Return keyboard focus to the game
             if (typeof PortalsSdk !== 'undefined') {
                 PortalsSdk.focusGameKeyboard();
             }
 
-            // Listen for heartbeat (position + rotation messages)
+            // Listen for heartbeat — updates targets, render loop handles smoothing
             if (typeof PortalsSdk !== 'undefined') {
                 PortalsSdk.setMessageListener(function(msg) {
                     var updated = parsePositionMessage(msg) || parseRotationMessage(msg);
-                    if (updated) updateDisplay();
+                    if (updated && !hasData) {
+                        // Snap display to first values (no slow lerp from 0,0)
+                        hasData = true;
+                        displayX = latestWorldX;
+                        displayZ = latestWorldZ;
+                        displayRot = selfRotation;
+                    }
                 });
             }
 
-            // Dev mode: mouse simulates position, arrow keys simulate rotation
+            // Start 60fps render loop
+            requestAnimationFrame(renderFrame);
+
+            // Dev mode: mouse=position, arrow keys=rotation (lerp still applies)
             if (typeof PortalsSdk === 'undefined') {
+                hasData = true;
                 console.log('[Minimap] Dev mode — mouse=position, arrow keys=rotation');
                 document.addEventListener('mousemove', function(e) {
                     latestWorldX = config.xMin + (e.clientX / window.innerWidth) * (config.xMax - config.xMin);
                     latestWorldZ = config.zMax - (e.clientY / window.innerHeight) * (config.zMax - config.zMin);
                     myName = myName || 'DevPlayer';
-                    updateDisplay();
                 });
                 document.addEventListener('keydown', function(e) {
                     if (e.key === 'ArrowLeft') selfRotation = (selfRotation - 15 + 360) % 360;
                     if (e.key === 'ArrowRight') selfRotation = (selfRotation + 15) % 360;
-                    updateDisplay();
                 });
             }
         }
